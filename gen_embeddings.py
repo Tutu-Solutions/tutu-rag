@@ -10,7 +10,6 @@ from llama_index.indices.vector_store import GPTVectorStoreIndex
 from llama_index import download_loader, LLMPredictor, ServiceContext
 from llama_index import StorageContext, load_index_from_storage
 from llama_index import SimpleDirectoryReader
-from langchain.chat_models import ChatOpenAI
 from llama_index.embeddings.openai import OpenAIEmbedding
 
 from llama_index.callbacks import (
@@ -38,17 +37,18 @@ from typing import Any, Dict, List, Optional
 from llama_index.readers.base import BaseReader
 from llama_index.readers.schema.base import Document
 
-from langchain.embeddings import HuggingFaceEmbeddings
+from langchain_community.embeddings import HuggingFaceEmbeddings
 from llama_index.embeddings.langchain import LangchainEmbedding
 
 ## Cached Embedding
 
 
-OPENAI_EMBED_MODEL="text-embedding-3-large"
-#GEMINI_EMBED_MODEL="models/embedding-001"
-GEMINI_EMBED_MODEL="models/textembedding-gecko-multilingual@001"
-LOCAL_EMBED_MODEL="intfloat/multilingual-e5-large"
-#LOCAL_EMBED_MODEL="intfloat/multilingual-e5-small"
+OPENAI_EMBED_MODEL = "text-embedding-3-large"
+# GEMINI_EMBED_MODEL="models/embedding-001"
+GEMINI_EMBED_MODEL = "models/textembedding-gecko-multilingual@001"
+LOCAL_EMBED_MODEL = "intfloat/multilingual-e5-large"
+# LOCAL_EMBED_MODEL="intfloat/multilingual-e5-small"
+
 
 class PandasExcelReader(BaseReader):
     r"""Pandas-based CSV parser.
@@ -98,6 +98,7 @@ class PandasExcelReader(BaseReader):
         import pandas as pd
 
         import llama_index
+
         tokenizer = llama_index.get_tokenizer()
 
         df = pd.read_excel(file, sheet_name=sheet_name, **self._pandas_config)
@@ -108,16 +109,19 @@ class PandasExcelReader(BaseReader):
 
         for key in keys:
             header = ", ".join(df[key].columns.astype(str).tolist())
-            cur_text = key +"\n" + header
+            cur_text = key + "\n" + header
             for row in df[key].values.astype(str).tolist():
-              next_text = cur_text + "\n" + ", ".join(row)
-              if len(tokenizer(next_text)) > DEFAULT_CHUNK_SIZE:
-                  document_list.append(Document(text=cur_text, extra_info=extra_info or {}))
-                  cur_text = key +"\n" + header +"\n" + ", ".join(row)
-              else:
-                  cur_text = next_text
+                next_text = cur_text + "\n" + ", ".join(row)
+                if len(tokenizer(next_text)) > DEFAULT_CHUNK_SIZE:
+                    document_list.append(
+                        Document(text=cur_text, extra_info=extra_info or {})
+                    )
+                    cur_text = key + "\n" + header + "\n" + ", ".join(row)
+                else:
+                    cur_text = next_text
             document_list.append(Document(text=cur_text, extra_info=extra_info or {}))
         return document_list
+
 
 def gen_embeddings(file_path, use_local_embed, use_gemini_embed):
     from langchain.storage import LocalFileStore
@@ -128,7 +132,7 @@ def gen_embeddings(file_path, use_local_embed, use_gemini_embed):
 
     llama_debug = LlamaDebugHandler(print_trace_on_end=True)
     callback_manager = CallbackManager([llama_debug])
-    
+
     embed_store = LocalFileStore("./embed_cache/")
 
     if use_local_embed:
@@ -140,7 +144,7 @@ def gen_embeddings(file_path, use_local_embed, use_gemini_embed):
 
         model_name = GEMINI_EMBED_MODEL
         underlying_embed_model = GoogleGenerativeAIEmbeddings(model=model_name)
-        #underlying_embed_model = VertexAIEmbeddings(model=model_name)
+        # underlying_embed_model = VertexAIEmbeddings(model=model_name)
     else:
         with open("API_KEY.txt", "r", encoding="UTF-8") as f:
             openai.api_key = f.readline().strip()
@@ -150,14 +154,20 @@ def gen_embeddings(file_path, use_local_embed, use_gemini_embed):
         underlying_embed_model = OpenAIEmbeddings(model=model_name)
 
     cached_embedder = CacheBackedEmbeddings.from_bytes_store(
-                underlying_embed_model, embed_store, namespace=model_name.replace("@","_")
-                )
+        underlying_embed_model, embed_store, namespace=model_name.replace("@", "_")
+    )
 
-    service_context = ServiceContext.from_defaults(embed_model=LangchainEmbedding(cached_embedder), llm=None, callback_manager=callback_manager)
+    service_context = ServiceContext.from_defaults(
+        embed_model=LangchainEmbedding(cached_embedder),
+        llm=None,
+        callback_manager=callback_manager,
+    )
 
     try:
         storage_context = StorageContext.from_defaults(persist_dir="./storage")
-        index = load_index_from_storage(storage_context, service_context=service_context)
+        index = load_index_from_storage(
+            storage_context, service_context=service_context
+        )
     except Exception as e:
         index = GPTVectorStoreIndex([], service_context=service_context)
 
@@ -186,7 +196,7 @@ def gen_embeddings(file_path, use_local_embed, use_gemini_embed):
     index.storage_context.persist()
 
     event_pairs = llama_debug.get_event_pairs(CBEventType.EMBEDDING)
-    #for pair in event_pairs:
+    # for pair in event_pairs:
     #    print(pair[1].payload['chunks'])
     #    print("---")
     #    print(pair[1].payload['embeddings'])
@@ -256,6 +266,7 @@ class SimpleCSVReader(BaseReader):
         import csv
 
         import llama_index
+
         tokenizer = llama_index.get_tokenizer()
 
         document_list = []
@@ -267,7 +278,9 @@ class SimpleCSVReader(BaseReader):
                 next_text = cur_text + "\n" + ", ".join(row)
                 if len(tokenizer(next_text)) > DEFAULT_CHUNK_SIZE:
                     print(cur_text)
-                    document_list.append(Document(text=cur_text, extra_info=extra_info or {}))
+                    document_list.append(
+                        Document(text=cur_text, extra_info=extra_info or {})
+                    )
                     cur_text = header + "\n" + ", ".join(row)
                 else:
                     cur_text = next_text

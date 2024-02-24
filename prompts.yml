@@ -1,0 +1,128 @@
+QA_PROMPT:
+  - "以下の情報を参照してください。"
+  - "---------------------"
+  - "{context_str}"
+  - "---------------------"
+  - "この情報を使って、次の質問に日本語で答えてください。: {query_str}"
+  - ""
+
+QA_PROMPT_COMPLETION:
+  - "以下の情報を参照してください。"
+  - "---------------------"
+  - "{context_str}"
+  - "---------------------"
+  - "この情報を使って、次の質問に日本語で答えてください。"
+  - "## 質問:"
+  - "{query_str}"
+  - "## 回答:"
+  - ""
+
+## https://qiita.com/nishikyon/items/5054209089fc632981f8
+QA_PROMPT_LLAMA2:
+  - "[INST] <<SYS>>"
+  - "以下の情報を参照してください。"
+  - "---------------------"
+  - "{context_str}"
+  - "---------------------"
+  - "この情報を使って、次の質問に日本語で答えてください。"
+  - "<</SYS>>"
+  - ""
+  - "質問: {query_str}"
+  - "回答: [/INST]"
+
+## https://huggingface.co/mistralai/Mixtral-8x7B-Instruct-v0.1
+QA_PROMPT_MISTRAL_INSTRUCT:
+  - "[INST] 以下の情報を参照してください。"
+  - "---------------------"
+  - "{context_str}"
+  - "---------------------"
+  - "この情報を使って、次の質問に日本語で答えてください。"
+  - "質問: {query_str}"
+  - "回答: [/INST]"
+
+## https://dataplatform.cloud.ibm.com/docs/content/wsj/analyze-data/fm-prompt-samples.html?context=wx#sample4a
+QA_PROMPT_FLAN_MISTRAL_INSTRUCT:
+  - "情報:"
+  - "###"
+  - "{context_str}"
+  - "###"
+  - ""
+  - "この情報を使って、次の質問に日本語で答えてください。"
+  - ""
+  - "質問: {query_str}"
+  - "回答: "
+
+QA_PROMPT_FLAN_EN:
+  - "Please answer the question with the following information"                                       
+  - "---------------------"
+  - ""                                                                                                
+  - ""
+  - "## Information:"
+  - "{context_str}"
+  - "---------------------"                                                                           
+  - ""  
+  - ""                                                                                                
+  - "Question: {query_str}"
+  - ""                                                                                                
+  
+## https://dataplatform.cloud.ibm.com/docs/content/wsj/analyze-data/fm-prompt-samples.html?context=wx#sample4a
+QA_PROMPT_FLAN_EN_INSTRUCT:
+  - "Context:"
+  - "{context_str}"
+  - ""
+  - ""
+  - "Instruction: Using the context, answer the following question in Japanese"
+  - ""
+  - ""
+  - "Question: {query_str}"
+  - ""
+  - ""
+  - "Answer: "
+  
+## https://dataplatform.cloud.ibm.com/docs/content/wsj/analyze-data/fm-prompt-samples.html?context=wx#sample4c
+QA_PROMPT_IBM_GRANITE_13B_INSTRUCT_V2_QA:
+  - "以下の情報を参照してください。質問に日本語で答えてください。"
+  - ""
+  - "Document: {context_str}"
+  - ""
+  - "DIALOG: USER: {query_str}"
+
+## https://dataplatform.cloud.ibm.com/docs/content/wsj/analyze-data/fm-prompt-samples.html?context=wx#sample8d
+QA_PROMPT_IBM_GRANITE_8B_JAPANESE_QA:
+  - "以下は、タスクを説明する指示と、文脈のある入力の組み合わせです。要求を適切に満たす応答を書きなさい。"
+  - ""
+  - "### 指示:"
+  - "情報を使って、次の質問に日本語で答えてください。"
+  - ""
+  - "### 情報:"
+  - "{context_str}"
+  - ""
+  - "### 入力:"
+  - "{query_str}"
+  - ""
+  - "### 応答:"
+  - ""
+
+## https://qiita.com/Jungobu/items/522e1543d2feb9add6ae#tipsibm%E3%81%AE%E8%A8%80%E8%AA%9E%E3%83%A2%E3%83%87%E3%83%ABgranite%E6%97%A5%E6%9C%AC%E8%AA%9E%E7%89%88%E3%82%92%E5%88%A9%E7%94%A8%E3%81%99%E3%82%8B%E9%9A%9B%E3%81%AE%E3%83%97%E3%83%AD%E3%83%B3%E3%83%97%E3%83%88%E5%A4%89%E6%9B%B4
+QA_PROMPT_IBM_GRANITE_8B_DISCOVER_QA:
+  - "### System:"
+  - "あなたは誠実で優秀なAIアシスタントです。ユーザーの指示に可能な限り正確に従ってください。"
+  - ""
+  - "### User:"
+  - "以下の文書を読んでQuestionに回答してください。与えられた文書では回答できない場合は「回答がない」と述べてください。"
+  - "{context_str}"
+  - ""
+  - "<Question>{query_str}</Question>"
+  - ""
+  - "### Assistant:"
+
+REFINE_PROMPT:
+  -  "元の質問は次のとおりです: {query_str} "
+  -  "既存の回答を提供しました: {existing_answer} "
+  -  "既存の答えを洗練する機会があります "
+  -  "(必要な場合のみ)以下にコンテキストを追加します。 "
+  -  "------------"
+  -  "{context_msg}"
+  -  "------------"
+  -  "新しいコンテキストを考慮して、元の答えをより良く洗練して質問に答えてください。"
+  -  "コンテキストが役に立たない場合は、元の回答と同じものを返します。"

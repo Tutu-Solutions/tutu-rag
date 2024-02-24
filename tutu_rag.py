@@ -2,164 +2,89 @@ import streamlit as st
 import extra_streamlit_components as stx
 
 import os
-import json
-import openai
 import time
+import json
+import argparse
 
 ## Local Import
-from index_module import get_multi_vector_index
+import settings
+
 from index_module import put_result_table
-from index_module import KEY_FOR_INDEXES, MULTI_STORAGE_DIR
+from index_module import MULTI_STORAGE_DIR
+from index_module import PREFIX_FOR_LLM, KEY_FOR_SELECTED_LLMS
+from index_module import STATE_KEY_FOR_CHECKED_NODES
+from engine import get_embed_model_keys
+from engine import get_query_engine
+from engine import get_llm_model_categories, get_llm_model_by_categories
+from engine import get_llm_model_by_key
+from engine import AuthRecord
+from keys import *
 
-## LlamaIndex Import
-from llama_index import ServiceContext
-from llama_index.prompts.prompts import RefinePrompt
-from llama_index.query_engine.multistep_query_engine import MultiStepQueryEngine
-from llama_index.indices.query.query_transform.base import StepDecomposeQueryTransform
-from llama_index.llms import Gemini
+## Global
+IBM_ENDPOINT_LIST = [
+    "東京,https://jp-tok.ml.cloud.ibm.com",
+    "ダラス,https://private.us-south.ml.cloud.ibm.com",
+    "ロンドン,https://private.eu-gb.ml.cloud.ibm.com",
+    "フランクフルト,https://private.eu-de.ml.cloud.ibm.com",
+]
 
-## Multi Step Query Import
-from llama_index.prompts.prompts import QuestionAnswerPrompt
-from llama_index import LLMPredictor
+AWS_REGION_LIST = [
+    "米国西部（オレゴン）,us-west-2",
+    "米国東部（バージニア) ,us-east-1",
+    "アジアパシフィック（東京）,ap-northeast-1",
+]
 
-## LlamaIndex Debug
-from llama_index.callbacks import CallbackManager, LlamaDebugHandler, CBEventType
 
-## LLM Models
-from langchain_community.chat_models import ChatOpenAI
-from langchain_google_genai import ChatGoogleGenerativeAI
-
-## LLM Cache
-import langchain
-from langchain.cache import SQLiteCache
-
-# Local Embedding
-from llama_index.embeddings.langchain import LangchainEmbedding
-from langchain.embeddings import HuggingFaceEmbeddings
-
-## GLOBAL
-TOP_SIMIRALITY_K = 3
-OPTION_TO_MODEL={
-        "全て" : "all",
-        "GPT-3.5" : "gpt-3.5-turbo",
-        "GPT-4" : "gpt-4-turbo-preview",
-        "Gemini" : "gemini-ultra"
-        }
-OPTION_TO_EMBED_MODEL={
-        "自動": {"service":"auto"},
-        "OpenAI" : {"service":"openai", "model": "text-embedding-ada-002"},
-#        "Gemini" : {"service":"google", "model":"models/embedding-001"},
-        "オンプレ" : {"service":"local", "model":"intfloat/multilingual-e5-small"}
-        }
-OPENAI_EMBED_MODEL="text-embedding-3-large"
-#LOCAL_EMBED_MODEL="intfloat/multilingual-e5-large"
-LOCAL_EMBED_MODEL="intfloat/multilingual-e5-small"
-
-@st.cache_resource
-def get_embed_model(embed_model):
-    from langchain.storage import LocalFileStore
-    from langchain.embeddings import CacheBackedEmbeddings
-    from langchain_openai import OpenAIEmbeddings
-    from langchain_google_genai import GoogleGenerativeAIEmbeddings
-    
-    embed_store = LocalFileStore("./embed_cache/")
-
-    service = embed_model["service"]
-    model_name = embed_model["model"]
-
-    print(service)
-    print(model_name)
-    if service == "local":
-        underlying_embed_model = HuggingFaceEmbeddings(model_name=model_name)
-    elif service == "google":
-        underlying_embed_model = GoogleGenerativeAIEmbeddings(model=model_name)
-    elif service == "openai":
-        print("OpenAI Embedding")
-        underlying_embed_model = OpenAIEmbeddings(model=model_name)
-
-    cached_embedder = CacheBackedEmbeddings.from_bytes_store(
-                underlying_embed_model, embed_store, namespace=model_name.replace("@","_")
-                )
-
-    return (LangchainEmbedding(cached_embedder), model_name)
-
-@st.cache_resource
-def get_query_engines(model, embed_model, storage_dir, selected_names):
-    langchain.llm_cache = SQLiteCache(database_path=".langchain.db")
-
-    llama_debug = LlamaDebugHandler(print_trace_on_end=True)
-    callback_manager = CallbackManager([llama_debug])
-    use_gemini_embed = False
-    if model.startswith("gemini"):
-        llm = Gemini(model="models/"+model)
-        if embed_model["service"] == "auto":
-            #embed_model = OPTION_TO_EMBED_MODEL["Gemini"]
-            embed_model = OPTION_TO_EMBED_MODEL["オンプレ"]
-        # Need update langchain >0.0.350
-        #llm = ChatGoogleGenerativeAI(model=model)
-    else:
-        if embed_model["service"] == "auto":
-            embed_model = OPTION_TO_EMBED_MODEL["OpenAI"]
-        llm = ChatOpenAI(model_name=model)
-
-    (embed_model, embed_model_name) = get_embed_model(embed_model)
-    service_context = ServiceContext.from_defaults(
-        embed_model=embed_model,
-        callback_manager=callback_manager, llm=llm
+def run_query(
+    auth_obj,
+    question,
+    llm_model_key,
+    embed_model_key,
+    storage_dir,
+    selected_names,
+):
+    print(selected_names)
+    llm_model = get_llm_model_by_key(llm_model_key)["model"]
+    query_engine, llama_debug = get_query_engine(
+        auth_obj,
+        llm_model_key,
+        embed_model_key,
+        MULTI_STORAGE_DIR,
+        selected_names,
+        True,
     )
 
-    index = get_multi_vector_index(selected_names, storage_dir, service_context, embed_model_name)
-
-    QA_PROMPT_TMPL = (
-        "以下の情報を参照してください。 \n"
-        "---------------------\n"
-        "{context_str}"
-        "\n---------------------\n"
-        "この情報を使って、次の質問に日本語で答えてください。: {query_str}\n"
-    )
-    qa_prompt = QuestionAnswerPrompt(QA_PROMPT_TMPL)
-    REFINE_PROMPT = (
-        "元の質問は次のとおりです: {query_str} \n"
-        "既存の回答を提供しました: {existing_answer} \n"
-        "既存の答えを洗練する機会があります \n"
-        "(必要な場合のみ)以下にコンテキストを追加します。 \n"
-        "------------\n"
-        "{context_msg}\n"
-        "------------\n"
-        "新しいコンテキストを考慮して、元の答えをより良く洗練して質問に答えてください。\n"
-        "コンテキストが役に立たない場合は、元の回答と同じものを返します。"
-    )
-    refine_prompt = RefinePrompt(REFINE_PROMPT)
-
-    base_query_engine = index.as_query_engine(
-        service_context=service_context,
-        text_qa_template=qa_prompt,
-        refine_template=refine_prompt,
-        similarity_top_k=TOP_SIMIRALITY_K,
-    )
-
-    return base_query_engine, llama_debug
-
-def run_query(question, model_key, embed_model, storage_dir, selected_names):
-    llm_model = OPTION_TO_MODEL[model_key]
-    query_engine, llama_debug = get_query_engines(llm_model, embed_model, MULTI_STORAGE_DIR, selected_names)
-
+    dur = -1
     try:
+        start_t = time.perf_counter()
         res = query_engine.query(question)
+        end_t = time.perf_counter()
+        dur = end_t - start_t
         event_pairs = llama_debug.get_llm_inputs_outputs()
         llama_debug.flush_event_logs()
         try:
-            prompt =  event_pairs[-1][1].payload["messages"][0]
+            prompt = event_pairs[-1][1].payload["messages"][0]
         except Exception as e:
-            prompt = ""
-        return (model_key, question,prompt,res,llm_model)
+            print(e)
+            try:
+                ## For Text Completion Model
+                prompt = event_pairs[-1][1].payload["formatted_prompt"]
+            except Exception as e:
+                print(e)
+                prompt = ""
+        return (llm_model_key, question, prompt, res, llm_model, dur)
     except Exception as e:
+
         class FakeRes(object):
-                pass
+            pass
+
+        import traceback
+
+        print(e)
+        traceback.print_exc()
         res = FakeRes()
         res.response = str(e)
-        return (model_key, question, None, res, llm_model)
-    
+        return (llm_model_key, question, None, res, llm_model, dur)
 
 
 def main_chat():
@@ -168,132 +93,268 @@ def main_chat():
     cookie_manager = stx.CookieManager()
     api_key = cookie_manager.get(cookie="api_key")
     g_api_key = cookie_manager.get(cookie="g_api_key")
-    model = cookie_manager.get(cookie="llm_model")
+    anthropic_key = cookie_manager.get(cookie=STATE_KEY_FOR_ANTHROPIC_KEY)
+    aws_access_key_id = cookie_manager.get(cookie=STATE_KEY_FOR_AWS_ACCESS_KEY)
+    aws_secret_access_key = cookie_manager.get(cookie=STATE_KEY_FOR_AWS_SECRET_KEY)
+    aws_region_name = cookie_manager.get(cookie=STATE_KEY_FOR_AWS_REGION)
+    i_api_key = cookie_manager.get(cookie=STATE_KEY_FOR_IBM_KEY)
+    i_project_id = cookie_manager.get(cookie=STATE_KEY_FOR_IBM_PROJECT_ID)
+    i_auth_endpoint = cookie_manager.get(cookie=STATE_KEY_FOR_IBM_AUTH_ENDPOINT)
     selected_names = cookie_manager.get(cookie="selected_names")
-    embed_model = cookie_manager.get(cookie="embed_model")
-
-#    with st.expander("API Key", expanded = all([api_key, g_api_key]):
-    with st.expander("API Key", expanded=False):
-        if api_key:
-            api_key = st.text_input("OpenAI API Key", api_key, type="password")
-        else:
-            api_key = st.text_input("OpenAI API Key", type="password")
-
-        if g_api_key:
-            g_api_key = st.text_input("Google API Key", g_api_key, type="password")
-        else:
-            g_api_key = st.text_input("Google API Key", type="password")
+    tagged_selected_names = cookie_manager.get(cookie=STATE_KEY_FOR_CHECKED_NODES)
+    embed_model = cookie_manager.get(cookie=STATE_KEY_FOR_EMBED_MODEL)
+    selected_llms_cookie = cookie_manager.get(cookie="selected_llms")
 
     with st.form("question"):
-        question = st.text_input("Your question", max_chars=1024)
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.form_submit_button("質問") 
+        key_filled = api_key != None and g_api_key != None and anthropic_key != None
+        with st.expander("API Key", expanded=not key_filled):
+            if api_key:
+                api_key = st.text_input("OpenAI API Key", api_key, type="password")
+            else:
+                api_key = st.text_input("OpenAI API Key", type="password")
 
-        if model:
-            try:
-                selected_index = list(OPTION_TO_MODEL.keys()).index(model)
-            except ValueError:
-                selected_index = 0
-        else:
-            selected_index = 0
+            if g_api_key:
+                g_api_key = st.text_input("Google API Key", g_api_key, type="password")
+            else:
+                g_api_key = st.text_input("Google API Key", type="password")
+
+            if anthropic_key:
+                anthropic_key = st.text_input(
+                    "Anthropic API Key", anthropic_key, type="password"
+                )
+            else:
+                anthropic_key = st.text_input("Anthropic API Key", type="password")
+
+            with st.container(border=False):
+                cols = st.columns(3)
+                with cols[0]:
+                    if aws_access_key_id:
+                        aws_access_key_id = st.text_input(
+                            "AWS アクセスキー", aws_access_key_id, type="password"
+                        )
+                    else:
+                        aws_access_key_id = st.text_input("AWS アクセスキー", type="password")
+                with cols[1]:
+                    if aws_secret_access_key:
+                        aws_secret_access_key = st.text_input(
+                            "AWS シークレットアクセスキー", aws_secret_access_key, type="password"
+                        )
+                    else:
+                        aws_secret_access_key = st.text_input(
+                            "AWS シークレットアクセスキー", type="password"
+                        )
+                with cols[2]:
+                    if aws_region_name:
+                        try:
+                            index = AWS_REGION_LIST.index(aws_region_name)
+                        except ValueError:
+                            index = 0
+                        aws_region_name = st.selectbox(
+                            "AWS リージョン", AWS_REGION_LIST, index=index
+                        )
+                    else:
+                        aws_region_name = st.selectbox("AWS リージョン", AWS_REGION_LIST)
+
+            with st.container(border=False):
+                cols = st.columns(3)
+                with cols[0]:
+                    if i_api_key:
+                        i_api_key = st.text_input(
+                            "IBM API Key", i_api_key, type="password"
+                        )
+                    else:
+                        i_api_key = st.text_input("IBM API Key", type="password")
+                with cols[1]:
+                    if i_project_id:
+                        i_project_id = st.text_input("IBM プロジェクトID", i_project_id)
+                    else:
+                        i_project_id = st.text_input("IBM プロジェクトID")
+                with cols[2]:
+                    if i_auth_endpoint:
+                        try:
+                            index = IBM_ENDPOINT_LIST.index(i_auth_endpoint)
+                        except ValueError:
+                            index = 0
+                        i_auth_endpoint = st.selectbox(
+                            "IBM エンドポイント", IBM_ENDPOINT_LIST, index=index
+                        )
+                    else:
+                        i_auth_endpoint = st.selectbox("IBM エンドポイント", IBM_ENDPOINT_LIST)
+
+        embed_model_keys = get_embed_model_keys()
+
+        selected_llms = []
+        all_llms = True
+        if KEY_FOR_SELECTED_LLMS in st.session_state:
+            all_llms = False
+            for llm_model_key in json.loads(st.session_state[KEY_FOR_SELECTED_LLMS]):
+                selected_llms.append(llm_model_key)
+        elif selected_llms_cookie:
+            selected_llms = selected_llms_cookie
+            all_llms = False
+
+        selected_llms_state = {}
+
+        with st.expander("大規模言語モデル"):
+            llm_categories = settings.PREDETERMINED_CATEGORIES
+            llm_categories = llm_categories + [
+                k for k in get_llm_model_categories() if k not in llm_categories
+            ]
+            cols = st.columns(settings.NUM_OF_COL_FOR_LLM)
+            i = 0
+
+            for category in llm_categories:
+                with cols[i]:
+                    st.text(category)
+                    llm_models = get_llm_model_by_categories(category)
+                    for llm in llm_models:
+                        key = STATE_KEY_FOR_LLM_MODEL + llm.replace(" ", "_")
+                        if all_llms:
+                            selected_llms_state[llm] = st.checkbox(
+                                llm, value=True, key=key
+                            )
+                        else:
+                            selected_llms_state[llm] = st.checkbox(
+                                llm, value=(llm in selected_llms), key=key
+                            )
+                i = (i + 1) % settings.NUM_OF_COL_FOR_LLM
+
+        question = st.text_input("質問", max_chars=1024)
+        col1, col2 = st.columns([1, 5])
+        with col1:
+            st.form_submit_button("送信")
 
         if embed_model:
             try:
-                selected_embed_index = list(OPTION_TO_EMBED_MODEL.keys()).index(embed_model)
+                selected_embed_index = list(embed_model_keys).index(embed_model)
             except ValueError:
                 selected_embed_index = 0
         else:
             selected_embed_index = 0
 
-
         with col2:
-            st.radio(
-                    "埋め込みモデルを選んでください。",
+            col1, col2 = st.columns([1, 5])
+            with col1:
+                st.text("ベクトル化方法")
+            with col2:
+                st.radio(
+                    "ベクトル化方法",
                     key="embed_model",
                     index=selected_embed_index,
-                    options=OPTION_TO_EMBED_MODEL.keys(),
-                    )
-        with col3:
-            st.radio(
-                "LLMを選んでください。",
-                key="model",
-                index=selected_index,
-                options=OPTION_TO_MODEL.keys(),
-            )
+                    options=embed_model_keys,
+                    horizontal=True,
+                    label_visibility="collapsed",
+                )
+
     if question:
-        result_area = st.empty()
-        info_area = st.empty()
-        
-        #if "model" not in st.session_state:
-        #    st.session_state.model = "GPT-3.5"
         if not selected_names:
             selected_names = "all"
-        
-        model = st.session_state.model
-        embed_model = st.session_state.embed_model
+        if not tagged_selected_names:
+            tagged_selected_names = "all"
 
-        with st.empty():
-            cookie_manager.set("api_key", api_key, key="api_key")
-            cookie_manager.set("g_api_key", g_api_key, key="g_api_key")
-            cookie_manager.set("llm_model", model, key="llm_model")
-            cookie_manager.set("embed_model", embed_model, key="embed_model_cookie")
+        selected_llm_model_keys = [k for k, v in selected_llms_state.items() if v]
+        selected_llms = json.dumps(selected_llm_model_keys)
+        st.session_state[KEY_FOR_SELECTED_LLMS] = selected_llms
 
-        model = OPTION_TO_MODEL[model]
-        embed_model = OPTION_TO_EMBED_MODEL[embed_model]
-        
-        os.environ["GOOGLE_API_KEY"] = g_api_key
+        embed_model_key = st.session_state.embed_model
+
+        with st.container(height=1, border=False):
+            cookie_manager.set("api_key", api_key, key="api_key_cookie")
+            cookie_manager.set("g_api_key", g_api_key, key="g_api_key_cookie")
+            cookie_manager.set(
+                STATE_KEY_FOR_EMBED_MODEL,
+                embed_model_key,
+                key=COOKIE_KEY_FOR_EMBED_MODEL,
+            )
+            cookie_manager.set(
+                "selected_llms", selected_llms, key="selected_llms_cookie"
+            )
+            cookie_manager.set(
+                STATE_KEY_FOR_IBM_KEY, i_api_key, key=COOKIE_KEY_FOR_IBM_KEY
+            )
+            cookie_manager.set(
+                STATE_KEY_FOR_IBM_PROJECT_ID,
+                i_project_id,
+                key=COOKIE_KEY_FOR_IBM_PROJECT_ID,
+            )
+            cookie_manager.set(
+                STATE_KEY_FOR_IBM_AUTH_ENDPOINT,
+                i_auth_endpoint,
+                key=COOKIE_KEY_FOR_IBM_AUTH_ENDPOINT,
+            )
+            cookie_manager.set(
+                STATE_KEY_FOR_ANTHROPIC_KEY,
+                anthropic_key,
+                key=COOKIE_KEY_FOR_ANTHROPIC_KEY,
+            )
+            cookie_manager.set(
+                STATE_KEY_FOR_AWS_ACCESS_KEY,
+                aws_access_key_id,
+                key=COOKIE_KEY_FOR_AWS_ACCESS_KEY,
+            )
+            cookie_manager.set(
+                STATE_KEY_FOR_AWS_SECRET_KEY,
+                aws_secret_access_key,
+                key=COOKIE_KEY_FOR_AWS_SECRET_KEY,
+            )
+            cookie_manager.set(
+                STATE_KEY_FOR_AWS_REGION, aws_region_name, key=COOKIE_KEY_FOR_AWS_REGION
+            )
+
+        auth_obj = AuthRecord(
+            api_key, g_api_key, i_api_key, i_project_id, i_auth_endpoint
+        )
+        auth_obj.add_anthropic_key(anthropic_key)
+        auth_obj.add_aws_key(aws_access_key_id, aws_secret_access_key, aws_region_name)
+
         os.environ["OPENAI_API_KEY"] = api_key
 
         try:
-            if model == "all":
-                results = []
-                futures = []
-                for model_key in OPTION_TO_MODEL:
-                    llm_model = OPTION_TO_MODEL[model_key]
-                    if llm_model == "all":
-                        continue
-                    start_t = time.perf_counter()
-                    result = run_query(question, model_key, embed_model, MULTI_STORAGE_DIR, selected_names)
-                    end_t = time.perf_counter()
-                    dur = end_t - start_t
-                    results.append(result + (dur, ))
-
-                cols = st.columns(len(results))
-                i = 0
-                for (model_key, question, prompt, res, model, dur) in results:
-                    with cols[i]:
-                        st.subheader("%s (%.2fs)" % (model_key, dur))
-#                        st.subheader(model_key)
-#                        st.caption("処理時間: %.2fs" % (dur))
-                        st.write(res.response.replace("\n", "  \n"))
-                        print(" - %s, 処理時間: %.2fs" % (model_key, dur))
-                        print(res.response)
-                        print("--- --- --- --- ---")
-
-                    i = i + 1
-
-                for (model_key, question, prompt, res, model, dur) in results:
-                    if prompt:
-                        put_result_table(question, prompt, res, model)
-            else:
-                base_query_engine, llama_debug = get_query_engines(
-                    model, embed_model, MULTI_STORAGE_DIR, selected_names
+            results = []
+            for model_key in selected_llm_model_keys:
+                result = run_query(
+                    auth_obj,
+                    question,
+                    model_key,
+                    embed_model_key,
+                    MULTI_STORAGE_DIR,
+                    tagged_selected_names,
                 )
-                res = base_query_engine.query(question)
-                event_pairs = llama_debug.get_llm_inputs_outputs()
-                llama_debug.flush_event_logs()
-                prompt = event_pairs[-1][1].payload["messages"][0]
-                put_result_table(question, prompt,res, model)
 
-                print(res.response)
-                result_area.write(res.response)
+                results.append(result)
+
         except Exception as e:
             import traceback
+
             print(e)
             traceback.print_exc()
             st.warning("例外が発生しました。")
-            st.text(e)
+            st.write(e)
+
+        i = 0
+        print("+++ +++ +++ +++ +++")
+        print(question)
+        print("+++ +++ +++ +++ +++")
+        for model_key, question, prompt, res, model, dur in results:
+            if i == 0:
+                container = st.container()
+                with container:
+                    result_cols = st.columns(3)
+                    st.divider()
+            with result_cols[i]:
+                st.subheader("%s (%.2fs)" % (model_key, dur))
+                st.write(res.response.replace("\n", "  \n"))
+                print(" - %s, 処理時間: %.2fs" % (model_key, dur))
+                print(res.response)
+                print("--- --- --- --- ---")
+
+            i = i + 1
+            if i == 3:
+                i = 0
+
+        for model_key, question, prompt, res, model, dur in results:
+            if prompt:
+                put_result_table(question, prompt, res, model)
 
 
 import logging
@@ -303,5 +364,16 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)4s %(name)s: %(message)s",
     filename="%s.log" % (os.path.basename(__file__)),
 )
+
+parser = argparse.ArgumentParser()
+parser.add_argument("-d", "--debug", action="store_true")
+parser.add_argument("-k", "--top_k",  type=int, default=settings.TOP_SIMIRALITY_K)
+parser.add_argument("-p", "--prompt", default=settings.PROMPT_ID)
+
+args = parser.parse_args()
+
+settings.DEBUG_MODE = args.debug
+settings.TOP_SIMIRALITY_K = args.top_k
+settings.PROMPT_ID = args.prompt
 
 main_chat()

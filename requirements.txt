@@ -1,10 +1,10 @@
-llama-index==0.9.43
+llama-index==0.9.48
 openai
 streamlit
 watchdog
-extra_streamlit_components
-langchain==0.1.5
-langchain-openai==0.0.5
+extra-streamlit-components==0.1.70
+langchain
+langchain-openai
 requests
 google-generativeai>=0.3.0
 langchain-google-genai
@@ -13,3 +13,8 @@ docx2txt
 openpyxl
 python-pptx
 google-cloud-aiplatform>=1.38.0
+langchain-community
+streamlit-tree-select
+ibm-watson-machine-learning
+langchain-anthropic
+boto3

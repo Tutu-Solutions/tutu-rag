@@ -9,3 +9,6 @@ G_API_KEY.txt
 result.db
 *.log
 archive/*/
+*.gguf
+*.bak
+uploaded.list

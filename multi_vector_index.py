@@ -15,19 +15,27 @@ from threading import Lock
 
 import json
 import sqlite3
-EMBED_CACHE_PATH=".embedding.db"
-DISABLE_CACHE=False
+
+EMBED_CACHE_PATH = ".embedding.db"
+DISABLE_CACHE = False
+
 
 class MultiVectorIndexRetriever(BaseRetriever):
     _cache_lock = Lock()
 
     def search_from_cache(self, model_name, embedding_strs):
-        if DISABLE_CACHE: return None
+        if DISABLE_CACHE:
+            return None
         with self._cache_lock:
             conn = sqlite3.connect(EMBED_CACHE_PATH)
             cur = conn.cursor()
-            cur.execute("CREATE TABLE IF NOT EXISTS records(model_name TEXT, embedding_strs TEXT, embedding TEXT, UNIQUE(model_name, embedding_strs))")
-            cur.execute('SELECT * FROM records WHERE model_name = ? AND embedding_strs = ?', (model_name, str(embedding_strs)))
+            cur.execute(
+                "CREATE TABLE IF NOT EXISTS records(model_name TEXT, embedding_strs TEXT, embedding TEXT, UNIQUE(model_name, embedding_strs))"
+            )
+            cur.execute(
+                "SELECT * FROM records WHERE model_name = ? AND embedding_strs = ?",
+                (model_name, str(embedding_strs)),
+            )
             data = cur.fetchone()
             conn.close()
             if data:
@@ -39,7 +47,10 @@ class MultiVectorIndexRetriever(BaseRetriever):
         with self._cache_lock:
             conn = sqlite3.connect(EMBED_CACHE_PATH)
             cur = conn.cursor()
-            cur.execute('INSERT OR IGNORE INTO records (model_name, embedding_strs, embedding) VALUES (?,?,?)', (model_name, str(embedding_strs), json.dumps(embedding)))
+            cur.execute(
+                "INSERT OR IGNORE INTO records (model_name, embedding_strs, embedding) VALUES (?,?,?)",
+                (model_name, str(embedding_strs), json.dumps(embedding)),
+            )
             conn.commit()
             conn.close()
 
@@ -69,13 +80,23 @@ class MultiVectorIndexRetriever(BaseRetriever):
         sub_retrievers = []
         if self._is_embedding_query:
             if query_bundle.embedding is None:
-                embedding_from_cache = self.search_from_cache(self._embed_model_name, query_bundle.embedding_strs)
-                query_bundle.embedding = embedding_from_cache if embedding_from_cache else (
+                embedding_from_cache = self.search_from_cache(
+                    self._embed_model_name, query_bundle.embedding_strs
+                )
+                query_bundle.embedding = (
+                    embedding_from_cache
+                    if embedding_from_cache
+                    else (
                         self._embed_model.get_agg_embedding_from_queries(
                             query_bundle.embedding_strs
                         )
                     )
-                self.insert_to_cache(self._embed_model_name, query_bundle.embedding_strs, query_bundle.embedding)
+                )
+                self.insert_to_cache(
+                    self._embed_model_name,
+                    query_bundle.embedding_strs,
+                    query_bundle.embedding,
+                )
         nodes_with_score = []
         for retriever in self._retrievers:
             nodes_with_score += retriever._get_nodes_with_embeddings(query_bundle)
@@ -114,7 +135,9 @@ class MultiVectorStore(BaseIndex[IndexDict]):
         )
 
     def as_retriever(self, **kwargs: Any) -> BaseRetriever:
-        return MultiVectorIndexRetriever(self._indexes, self._embed_model_name, **kwargs)
+        return MultiVectorIndexRetriever(
+            self._indexes, self._embed_model_name, **kwargs
+        )
 
     def _build_index_from_nodes(self, nodes: Sequence[BaseNode]) -> IndexDict:
         pass
