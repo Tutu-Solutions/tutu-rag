@@ -6,6 +6,7 @@ import os
 from tempfile import NamedTemporaryFile
 
 ## Local Import
+from engine import AuthRecord
 from engine import get_embed_model_keys
 from engine import gen_embeddings_for_file
 
@@ -42,7 +43,9 @@ if submitted:
         process = False
 
     if process:
-        os.environ["OPENAI_API_KEY"] = api_key
+        auth_obj = AuthRecord(
+            api_key, "", "", "", ""
+        )
 
         file_name = uploaded_file.name
         bytes_data = uploaded_file.getvalue()
@@ -60,7 +63,7 @@ if submitted:
             embed_model_keys = get_embed_model_keys()
             counts = len(embed_model_keys)
             for embed_key in embed_model_keys:
-                rec = gen_embeddings_for_file(f, file_name, embed_key, tags)
+                rec = gen_embeddings_for_file(f, file_name, auth_obj, embed_key, tags)
                 if DEBUG:
                     st.write(rec)
                 progress = progress + 1

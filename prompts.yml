@@ -52,19 +52,6 @@ QA_PROMPT_FLAN_MISTRAL_INSTRUCT:
   - "質問: {query_str}"
   - "回答: "
 
-QA_PROMPT_FLAN_EN:
-  - "Please answer the question with the following information"                                       
-  - "---------------------"
-  - ""                                                                                                
-  - ""
-  - "## Information:"
-  - "{context_str}"
-  - "---------------------"                                                                           
-  - ""  
-  - ""                                                                                                
-  - "Question: {query_str}"
-  - ""                                                                                                
-  
 ## https://dataplatform.cloud.ibm.com/docs/content/wsj/analyze-data/fm-prompt-samples.html?context=wx#sample4a
 QA_PROMPT_FLAN_EN_INSTRUCT:
   - "Context:"

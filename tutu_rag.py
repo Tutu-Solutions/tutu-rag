@@ -307,8 +307,6 @@ def main_chat():
         auth_obj.add_anthropic_key(anthropic_key)
         auth_obj.add_aws_key(aws_access_key_id, aws_secret_access_key, aws_region_name)
 
-        os.environ["OPENAI_API_KEY"] = api_key
-
         try:
             results = []
             for model_key in selected_llm_model_keys:
@@ -367,7 +365,7 @@ logging.basicConfig(
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-d", "--debug", action="store_true")
-parser.add_argument("-k", "--top_k",  type=int, default=settings.TOP_SIMIRALITY_K)
+parser.add_argument("-k", "--top_k", type=int, default=settings.TOP_SIMIRALITY_K)
 parser.add_argument("-p", "--prompt", default=settings.PROMPT_ID)
 
 args = parser.parse_args()

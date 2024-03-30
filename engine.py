@@ -3,6 +3,7 @@ import streamlit as st
 import os
 import json
 import uuid
+import yaml
 
 ## LlamaIndex Import
 from llama_index import ServiceContext, StorageContext
@@ -59,9 +60,9 @@ from ibm_watson_machine_learning.foundation_models.extensions.langchain import (
 import settings
 from keys import *
 
-## GLOBAL
-LLM_CONFIG_FILE = "llm_model.json"
+from lc_engine import LCBridge
 
+## GLOBAL
 OPTION_TO_EMBED_MODEL = {
     #        "自動": {"service":"auto"},
     EMBED_KEY_OPENAI: {"service": "openai", "model": "text-embedding-ada-002"},
@@ -102,8 +103,9 @@ class AuthRecord(object):
 
 
 def get_llm_model_config():
-    with open(LLM_CONFIG_FILE, encoding="utf-8") as f:
-        return json.load(f)
+    from pathlib import Path
+
+    return yaml.safe_load(Path(settings.LLM_CONFIG_FILE).read_text())
 
 
 def get_llm_model_categories():
@@ -138,8 +140,8 @@ def get_embed_model_keys():
     return OPTION_TO_EMBED_MODEL.keys()
 
 
-@st.cache_resource
-def get_embed_model(embed_model):
+@st.cache_resource(hash_funcs={AuthRecord: lambda x: str(str.__dict__)})
+def get_embed_model(embed_model, auth_obj: AuthRecord):
     embed_store = LocalFileStore("./embed_cache/")
 
     service = embed_model["service"]
@@ -148,9 +150,13 @@ def get_embed_model(embed_model):
     if service == "local":
         underlying_embed_model = HuggingFaceEmbeddings(model_name=model_name)
     elif service == "google":
-        underlying_embed_model = GoogleGenerativeAIEmbeddings(model=model_name)
+        underlying_embed_model = GoogleGenerativeAIEmbeddings(
+            model=model_name, google_api_key=auth_obj.g_api_key
+        )
     elif service == "openai":
-        underlying_embed_model = OpenAIEmbeddings(model=model_name)
+        underlying_embed_model = OpenAIEmbeddings(
+            model=model_name, openai_api_key=auth_obj.api_key
+        )
 
     cached_embedder = CacheBackedEmbeddings.from_bytes_store(
         underlying_embed_model, embed_store, namespace=model_name.replace("@", "_")
@@ -193,7 +199,7 @@ def get_llm_model(llm_model_entry, auth_obj):
         return WatsonxLLM(model=model)
 
     else:
-        return ChatOpenAI(model_name=llm_model)
+        return ChatOpenAI(model_name=llm_model, openai_api_key=auth_obj.api_key)
 
 
 def get_prompt(prompt_id):
@@ -207,19 +213,18 @@ def get_prompt(prompt_id):
     return prompt
 
 
-@st.cache_resource
 def get_index(
-    embed_model_key,
+    auth_obj,
+    embed_model_entry,
     storage_dir,
     selected_names,
     names_tagged,
 ):
+    (embed_model, embed_model_name) = get_embed_model(embed_model_entry, auth_obj)
+
     # TODO: Pass in Callback Manager from top level
     llama_debug = LlamaDebugHandler(print_trace_on_end=True)
     callback_manager = CallbackManager([llama_debug])
-
-    embed_model = OPTION_TO_EMBED_MODEL[embed_model_key]
-    (embed_model, embed_model_name) = get_embed_model(embed_model)
 
     service_context = ServiceContext.from_defaults(
         embed_model=embed_model, callback_manager=callback_manager, llm=None
@@ -243,22 +248,27 @@ def get_query_engine(
     selected_names,
     names_tagged=False,
 ):
-    llm_model_entry = get_llm_model_by_key(llm_model_key)
-    llm = get_llm_model(llm_model_entry, auth_obj)
-    langchain.llm_cache = SQLiteCache(database_path=".langchain.db")
+    embed_model_entry = OPTION_TO_EMBED_MODEL[embed_model_key]
+    (embed_model, embed_model_name) = get_embed_model(embed_model_entry, auth_obj)
 
     index, callback_manager, llama_debug = get_index(
-        embed_model_key, storage_dir, selected_names, names_tagged
+        auth_obj, embed_model_entry, storage_dir, selected_names, names_tagged
     )
 
-    embed_model = OPTION_TO_EMBED_MODEL[embed_model_key]
-    (embed_model, embed_model_name) = get_embed_model(embed_model)
+    llm_model_entry = get_llm_model_by_key(llm_model_key)
 
     prompt_id = (
         llm_model_entry["prompt"] if "prompt" in llm_model_entry else settings.PROMPT_ID
     )
     qa_prompt = QuestionAnswerPrompt(get_prompt(prompt_id))
     refine_prompt = RefinePrompt(get_prompt(settings.REFINE_PROMPT_ID))
+
+    llm_service = llm_model_entry["service"]
+    if llm_service == "langgraph":
+        return LCBridge(index, embed_model), llama_debug
+
+    llm = get_llm_model(llm_model_entry, auth_obj)
+    langchain.llm_cache = SQLiteCache(database_path=settings.LANGCHAIN_LLM_CACHE_DB)
 
     service_context = ServiceContext.from_defaults(
         embed_model=embed_model, callback_manager=callback_manager, llm=llm
@@ -274,9 +284,9 @@ def get_query_engine(
     return base_query_engine, llama_debug
 
 
-def gen_embeddings_for_file(f, file_name, embed_key, tags="その他"):
+def gen_embeddings_for_file(f, file_name, auth_obj, embed_key, tags="その他"):
     embed_model_entry = OPTION_TO_EMBED_MODEL[embed_key]
-    (embed_model, model_name) = get_embed_model(embed_model_entry)
+    (embed_model, model_name) = get_embed_model(embed_model_entry, auth_obj)
     llama_debug = LlamaDebugHandler(print_trace_on_end=True)
     callback_manager = CallbackManager([llama_debug])
 

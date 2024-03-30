@@ -18,3 +18,6 @@ streamlit-tree-select
 ibm-watson-machine-learning
 langchain-anthropic
 boto3
+langchain_google_vertexai
+bigframes
+langgraph

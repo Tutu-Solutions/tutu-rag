@@ -16,9 +16,6 @@ from index_module import (
     COOKIE_KEY_FOR_EXPANDED_NODES,
 )
 
-## Global
-DEBUG = False
-
 st.set_page_config(layout="wide")
 st.title("学習ファイルフォルダ構成")
 
@@ -30,40 +27,23 @@ expanded_node_cookie = cookie_manager.get(cookie=STATE_KEY_FOR_EXPANDED_NODES)
 checked_node_cookie = cookie_manager.get(cookie=STATE_KEY_FOR_CHECKED_NODES)
 
 with st.container(border=True):
-    if DEBUG:
-        if expanded_node_cookie or checked_node_cookie:
-            st.subheader("Cookies")
-        if expanded_node_cookie:
-            st.write(expanded_node_cookie)
-        if checked_node_cookie:
-            st.write(checked_node_cookie)
-
     (select_tree, tags, all_keys) = get_select_tree(MULTI_STORAGE_DIR)
     expanded = tags
     checked = all_keys
 
     if STATE_KEY_FOR_EXPANDED_NODES in st.session_state:
-        if DEBUG:
-            st.info("Expanded from session_state")
-            st.write(st.session_state[STATE_KEY_FOR_EXPANDED_NODES])
         expanded = st.session_state[STATE_KEY_FOR_EXPANDED_NODES]
     elif expanded_node_cookie:
         if expanded_node_cookie != "all":
             expanded = expanded_node_cookie
 
     if STATE_KEY_FOR_CHECKED_NODES in st.session_state:
-        if DEBUG:
-            st.info("Chcked from session_state")
-            st.write(st.session_state[STATE_KEY_FOR_CHECKED_NODES])
         checked = st.session_state[STATE_KEY_FOR_CHECKED_NODES]
     elif checked_node_cookie:
         if checked_node_cookie != "all":
             checked = checked_node_cookie
 
     ret_select = tree_select(select_tree, expanded=expanded, checked=checked)
-    if DEBUG:
-        st.info("Debug tree_select result")
-        st.write(ret_select)
 
     cols = st.columns([1, 1, 7])
     with cols[0]:

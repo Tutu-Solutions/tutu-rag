@@ -31,11 +31,6 @@ i_auth_endpoint = None
 i_project_id = None
 i_api_key = None
 
-if api_key:
-    os.environ["OPENAI_API_KEY"] = api_key
-if g_api_key:
-    os.environ["GOOGLE_API_KEY"] = g_api_key
-
 auth_obj = AuthRecord(api_key, g_api_key, i_api_key, i_project_id, i_auth_endpoint)
 
 query_engine, llama_debug = get_query_engine(
