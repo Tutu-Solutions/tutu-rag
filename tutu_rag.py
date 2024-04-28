@@ -379,13 +379,13 @@ def main_chat():
                         s.add(int(re))
 
                 ref = []
-                for i in s:
+                for node in s:
                     filename = (
-                        res.source_nodes[i - 1].metadata["file_name"]
-                        if "file_name" in res.source_nodes[i - 1].metadata
+                        res.source_nodes[node - 1].metadata["file_name"]
+                        if "file_name" in res.source_nodes[node - 1].metadata
                         else ""
                     )
-                    ref.append("%d. %s" % (i, filename))
+                    ref.append("%d. %s" % (node, filename))
                 st.write("\n".join(ref))
 
                 print(" - %s, 処理時間: %.2fs" % (model_key, dur))
