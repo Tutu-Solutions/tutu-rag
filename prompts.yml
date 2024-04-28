@@ -30,6 +30,19 @@ QA_PROMPT_LLAMA2:
   - "質問: {query_str}"
   - "回答: [/INST]"
 
+## https://llama.meta.com/docs/model-cards-and-prompt-formats/meta-llama-3/
+QA_PROMPT_LLAMA3:
+  - "<|begin_of_text|><|start_header_id|>system<|end_header_id|>"
+  - "以下の情報を参照してください。"
+  - "---------------------"
+  - "{context_str}"
+  - "---------------------"
+  - "この情報を使って、次の質問に日本語で答えてください。"
+  - "<|eot_id|><|start_header_id|>user<|end_header_id|>"
+  - ""
+  - "質問: {query_str}"
+  - "<|eot_id|><|start_header_id|>assistant<|end_header_id|>"
+
 ## https://huggingface.co/mistralai/Mixtral-8x7B-Instruct-v0.1
 QA_PROMPT_MISTRAL_INSTRUCT:
   - "[INST] 以下の情報を参照してください。"

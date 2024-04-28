@@ -98,6 +98,16 @@ Llama-2-70b-chat (IBM Watsonx):
   model: meta-llama/llama-2-70b-chat
   service: IBM
   prompt: QA_PROMPT_LLAMA2
+Llama-3-70b-instruct (IBM Watsonx):
+  category: Meta
+  model: meta-llama/llama-3-70b-instruct
+  service: IBM
+  prompt: QA_PROMPT_LLAMA3
+Llama-3-8b-instruct (IBM Watsonx):
+  category: Meta
+  model: meta-llama/llama-3-8b-instruct
+  service: IBM
+  prompt: QA_PROMPT_LLAMA3
 Elyza-japanese-llama-2-7b (IBM Watsonx):
   category: Meta
   model: elyza/elyza-japanese-llama-2-7b-instruct
