@@ -365,6 +365,29 @@ def main_chat():
             with result_cols[i]:
                 st.subheader("%s (%.2fs)" % (model_key, dur))
                 st.write(res.response.replace("\n", "  \n"))
+
+                ## check if citations exist
+                import re
+
+                citation_re = re.compile("\[(\d+)\]")
+                re_all = citation_re.findall(res.response)
+                from sortedcontainers import SortedSet
+
+                if re_all:
+                    s = SortedSet()
+                    for re in re_all:
+                        s.add(int(re))
+
+                ref = []
+                for i in s:
+                    filename = (
+                        res.source_nodes[i - 1].metadata["file_name"]
+                        if "file_name" in res.source_nodes[i - 1].metadata
+                        else ""
+                    )
+                    ref.append("%d. %s" % (i, filename))
+                st.write("\n".join(ref))
+
                 print(" - %s, 処理時間: %.2fs" % (model_key, dur))
                 print(res.response)
                 print("--- --- --- --- ---")

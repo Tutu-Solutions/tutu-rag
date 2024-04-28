@@ -22,3 +22,4 @@ boto3==1.34.78
 bigframes==1.1.0
 langgraph==0.0.32
 langchain-cohere==0.1.2
+sortedcontainers

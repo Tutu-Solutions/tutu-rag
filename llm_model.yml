@@ -133,6 +133,24 @@ Gemini 1.5 Pro (CRAG):
   model: gemini-1.5-pro-latest
   service: Google
   option: CRAG
+Gemini 1.5 Pro (Grounding):
+  category: Google
+  model: gemini-1.5-pro-latest
+  service: Google
+  citation: True
+  citation_prompt: QA_CITATION_PROMPT
+GPT-3.5 (Grounding):
+  category: OpenAI
+  model: gpt-3.5-turbo
+  service: OpenAI
+  citation: True
+  citation_prompt: QA_CITATION_PROMPT
+GPT-4 (Grounding):
+  category: OpenAI
+  model: gpt-4-turbo-preview
+  service: OpenAI
+  citation: True
+  citation_prompt: QA_CITATION_PROMPT
 GPT-3.5 (CRAG):
   category: OpenAI
   model: gpt-3.5-turbo

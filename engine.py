@@ -265,6 +265,19 @@ def get_index(
     selected_names,
     names_tagged,
 ):
+    return get_index_with_llm(
+        auth_obj, embed_model_entry, storage_dir, selected_names, names_tagged
+    )
+
+
+def get_index_with_llm(
+    auth_obj,
+    embed_model_entry,
+    storage_dir,
+    selected_names,
+    names_tagged,
+    llm=None,
+):
     (embed_model, embed_model_name) = get_embed_model(
         embed_model_entry, auth_obj, retrieval=True
     )
@@ -274,7 +287,7 @@ def get_index(
     callback_manager = CallbackManager([llama_debug])
 
     service_context = ServiceContext.from_defaults(
-        embed_model=embed_model, callback_manager=callback_manager, llm=None
+        embed_model=embed_model, callback_manager=callback_manager, llm=llm
     )
 
     return (
@@ -337,15 +350,37 @@ def get_query_engine(
         node_postprocessors = [cohere_rerank]
         similarity_top_k = similarity_top_k + 2
 
-    base_query_engine = index.as_query_engine(
-        service_context=service_context,
-        text_qa_template=qa_prompt,
-        refine_template=refine_prompt,
-        similarity_top_k=similarity_top_k,
-        node_postprocessors=node_postprocessors,
-    )
+    if "citation" in llm_model_entry:
+        from llama_index.query_engine import CitationQueryEngine
+        from llama_index.prompts import PromptTemplate
 
-    return base_query_engine, llama_debug
+        index, callback_manager, llama_debug = get_index_with_llm(
+            auth_obj, embed_model_entry, storage_dir, selected_names, names_tagged, llm
+        )
+
+        citation_prompt_id = (
+            llm_model_entry["citation_prompt"]
+            if "citation_prompt" in llm_model_entry
+            else settings.CITATION_PROMPT_ID
+        )
+        citation_prompt = get_prompt(citation_prompt_id)
+        query_engine = CitationQueryEngine.from_args(
+            index,
+            text_splitter=None,
+            similarity_top_k=similarity_top_k,
+            citation_qa_template=PromptTemplate(citation_prompt),
+            node_postprocessors=node_postprocessors,
+        )
+    else:
+        query_engine = index.as_query_engine(
+            service_context=service_context,
+            text_qa_template=qa_prompt,
+            refine_template=refine_prompt,
+            similarity_top_k=similarity_top_k,
+            node_postprocessors=node_postprocessors,
+        )
+
+    return query_engine, llama_debug
 
 
 def gen_embeddings_for_file(f, file_name, auth_obj, embed_key, tags="その他"):
