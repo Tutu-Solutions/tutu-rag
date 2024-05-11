@@ -1,0 +1,14 @@
+llama-index==0.9.43
+openai
+streamlit
+watchdog
+extra_streamlit_components
+langchain==0.1.5
+langchain-openai==0.0.5
+requests
+google-generativeai>=0.3.0
+langchain-google-genai
+sentence-transformers
+docx2txt
+openpyxl
+python-pptx
