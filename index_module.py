@@ -17,7 +17,6 @@ ATTRIBUTE_FOR_EMBED_MODEL = "embed_model"
 PREFIX_FOR_INDEXES = "index_"
 KEY_FOR_INDEXES = "indexes"
 
-
 def get_storage_config(storage_dir):
     with open(os.path.join(storage_dir, CONFIG_FILE), encoding="utf-8") as f:
         config = json.load(f)
@@ -34,16 +33,29 @@ def add_record_to_storage_config(storage_dir, index_id, storage_record):
     with open(os.path.join(storage_dir, CONFIG_FILE), "w", encoding="utf-8") as f:
         f.write(json_str)
 
-
-def get_multi_vector_index(selected_indexes_ids, storage_dir, service_context, embed_model):
+def get_storage_names(storage_dir):
     config = get_storage_config(storage_dir)
-    if selected_indexes_ids == "all":
+    names = set()
+    for storage_key in config:
+        names.add(config[storage_key]["file_name"])
+    return sorted(names)
+
+def get_storage_keys_from_names(config, names):
+    names_set = set(names)
+    selected_indexes_ids = []
+    for storage_key in config.keys():
+        if config[storage_key]["file_name"] in names_set:
+            selected_indexes_ids.append(storage_key)
+    return selected_indexes_ids
+
+def get_multi_vector_index(selected_names, storage_dir, service_context, embed_model):
+    config = get_storage_config(storage_dir)
+    if selected_names == "all":
         selected_indexes_ids = config.keys()
+    else:
+        selected_indexes_ids = get_storage_keys_from_names(config, selected_names)
     all_indexes = []
     for index_id in selected_indexes_ids:
-        print(index_id)
-        print(config[index_id][ATTRIBUTE_FOR_EMBED_MODEL])
-        print(embed_model)
         if config[index_id][ATTRIBUTE_FOR_EMBED_MODEL] != embed_model:
             continue
         if index_id not in config:
@@ -58,7 +70,7 @@ def get_multi_vector_index(selected_indexes_ids, storage_dir, service_context, e
         except Exception as e:
             print(e)
             continue
-    index = MultiVectorStore(indexes=all_indexes, service_context=service_context)
+    index = MultiVectorStore(indexes=all_indexes, service_context=service_context, embed_model_name=embed_model)
     return index
 
 #RECORD_URL="http://127.0.0.1:5001/gpt-dev-34c73/us-central1/add"
@@ -80,7 +92,7 @@ def put_result_table(question, prompt, res, model):
         obj["metadata"] = str(res.source_nodes)
         obj["model"] = model
         obj["timestamp"] = ts
-        json_str = json.dumps(obj)
+        json_str = json.dumps(obj, ensure_ascii=False)
         sign = hashlib.sha512(json_str.encode('UTF-8'))
         obj["signature"] = sign.hexdigest()
         r = requests.post(RECORD_URL, json=obj, timeout=1.0)

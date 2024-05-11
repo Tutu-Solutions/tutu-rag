@@ -1,0 +1,11 @@
+__pycache__/
+embed_cache/
+multi_storage/
+learning_data
+API_KEY.txt
+G_API_KEY.txt
+.embedding.db
+.langchain.db
+result.db
+*.log
+archive/*/

@@ -12,3 +12,4 @@ sentence-transformers
 docx2txt
 openpyxl
 python-pptx
+google-cloud-aiplatform>=1.38.0

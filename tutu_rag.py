@@ -4,6 +4,7 @@ import extra_streamlit_components as stx
 import os
 import json
 import openai
+import time
 
 ## Local Import
 from index_module import get_multi_vector_index
@@ -44,59 +45,70 @@ OPTION_TO_MODEL={
         "GPT-4" : "gpt-4-turbo-preview",
         "Gemini" : "gemini-ultra"
         }
+OPTION_TO_EMBED_MODEL={
+        "自動": {"service":"auto"},
+        "OpenAI" : {"service":"openai", "model": "text-embedding-ada-002"},
+#        "Gemini" : {"service":"google", "model":"models/embedding-001"},
+        "オンプレ" : {"service":"local", "model":"intfloat/multilingual-e5-small"}
+        }
 OPENAI_EMBED_MODEL="text-embedding-3-large"
 #LOCAL_EMBED_MODEL="intfloat/multilingual-e5-large"
 LOCAL_EMBED_MODEL="intfloat/multilingual-e5-small"
 
 @st.cache_resource
-def get_embed_model(api_key, use_local_embed, use_gemini_embed):
+def get_embed_model(embed_model):
     from langchain.storage import LocalFileStore
     from langchain.embeddings import CacheBackedEmbeddings
     from langchain_openai import OpenAIEmbeddings
     from langchain_google_genai import GoogleGenerativeAIEmbeddings
     
     embed_store = LocalFileStore("./embed_cache/")
-    
-    if use_local_embed:
-        model_name = LOCAL_EMBED_MODEL
+
+    service = embed_model["service"]
+    model_name = embed_model["model"]
+
+    print(service)
+    print(model_name)
+    if service == "local":
         underlying_embed_model = HuggingFaceEmbeddings(model_name=model_name)
-    elif use_gemini_embed:
-        model_name = GEMINI_EMBED_MODEL
+    elif service == "google":
         underlying_embed_model = GoogleGenerativeAIEmbeddings(model=model_name)
-    else:
-        model_name = OPENAI_EMBED_MODEL
+    elif service == "openai":
+        print("OpenAI Embedding")
         underlying_embed_model = OpenAIEmbeddings(model=model_name)
 
     cached_embedder = CacheBackedEmbeddings.from_bytes_store(
-                underlying_embed_model, embed_store, namespace=model_name
+                underlying_embed_model, embed_store, namespace=model_name.replace("@","_")
                 )
 
     return (LangchainEmbedding(cached_embedder), model_name)
 
 @st.cache_resource
-def get_query_engines(api_key, g_api_key, model, storage_dir, selected_indexes_ids, use_local_embed=True):
+def get_query_engines(model, embed_model, storage_dir, selected_names):
     langchain.llm_cache = SQLiteCache(database_path=".langchain.db")
 
     llama_debug = LlamaDebugHandler(print_trace_on_end=True)
     callback_manager = CallbackManager([llama_debug])
     use_gemini_embed = False
     if model.startswith("gemini"):
-        os.environ["GOOGLE_API_KEY"] = g_api_key
         llm = Gemini(model="models/"+model)
-        use_gemini_embed = True
+        if embed_model["service"] == "auto":
+            #embed_model = OPTION_TO_EMBED_MODEL["Gemini"]
+            embed_model = OPTION_TO_EMBED_MODEL["オンプレ"]
         # Need update langchain >0.0.350
         #llm = ChatGoogleGenerativeAI(model=model)
     else:
-        os.environ["OPENAI_API_KEY"] = api_key
+        if embed_model["service"] == "auto":
+            embed_model = OPTION_TO_EMBED_MODEL["OpenAI"]
         llm = ChatOpenAI(model_name=model)
 
-    (embed_model, embed_model_name) = get_embed_model(api_key, use_local_embed, use_gemini_embed)
+    (embed_model, embed_model_name) = get_embed_model(embed_model)
     service_context = ServiceContext.from_defaults(
         embed_model=embed_model,
         callback_manager=callback_manager, llm=llm
     )
 
-    index = get_multi_vector_index(selected_indexes_ids, storage_dir, service_context, embed_model_name)
+    index = get_multi_vector_index(selected_names, storage_dir, service_context, embed_model_name)
 
     QA_PROMPT_TMPL = (
         "以下の情報を参照してください。 \n"
@@ -128,83 +140,145 @@ def get_query_engines(api_key, g_api_key, model, storage_dir, selected_indexes_i
 
     return base_query_engine, llama_debug
 
+def run_query(question, model_key, embed_model, storage_dir, selected_names):
+    llm_model = OPTION_TO_MODEL[model_key]
+    query_engine, llama_debug = get_query_engines(llm_model, embed_model, MULTI_STORAGE_DIR, selected_names)
+
+    try:
+        res = query_engine.query(question)
+        event_pairs = llama_debug.get_llm_inputs_outputs()
+        llama_debug.flush_event_logs()
+        try:
+            prompt =  event_pairs[-1][1].payload["messages"][0]
+        except Exception as e:
+            prompt = ""
+        return (model_key, question,prompt,res,llm_model)
+    except Exception as e:
+        class FakeRes(object):
+                pass
+        res = FakeRes()
+        res.response = str(e)
+        return (model_key, question, None, res, llm_model)
+    
+
 
 def main_chat():
     st.set_page_config(layout="wide")
 
     cookie_manager = stx.CookieManager()
     api_key = cookie_manager.get(cookie="api_key")
-    model = cookie_manager.get(cookie="model")
+    g_api_key = cookie_manager.get(cookie="g_api_key")
+    model = cookie_manager.get(cookie="llm_model")
+    selected_names = cookie_manager.get(cookie="selected_names")
+    embed_model = cookie_manager.get(cookie="embed_model")
 
-    if api_key:
-        api_key = st.text_input("OpenAI API Key", api_key, type="password")
-    else:
-        api_key = st.text_input("OpenAI API Key", type="password")
+#    with st.expander("API Key", expanded = all([api_key, g_api_key]):
+    with st.expander("API Key", expanded=False):
+        if api_key:
+            api_key = st.text_input("OpenAI API Key", api_key, type="password")
+        else:
+            api_key = st.text_input("OpenAI API Key", type="password")
 
-    g_api_key = st.text_input("Google API Key", type="password")
-    
+        if g_api_key:
+            g_api_key = st.text_input("Google API Key", g_api_key, type="password")
+        else:
+            g_api_key = st.text_input("Google API Key", type="password")
+
     with st.form("question"):
         question = st.text_input("Your question", max_chars=1024)
-        col1, col2 = st.columns(2)
+        col1, col2, col3 = st.columns(3)
         with col1:
             st.form_submit_button("質問") 
 
+        if model:
+            try:
+                selected_index = list(OPTION_TO_MODEL.keys()).index(model)
+            except ValueError:
+                selected_index = 0
+        else:
+            selected_index = 0
+
+        if embed_model:
+            try:
+                selected_embed_index = list(OPTION_TO_EMBED_MODEL.keys()).index(embed_model)
+            except ValueError:
+                selected_embed_index = 0
+        else:
+            selected_embed_index = 0
+
+
         with col2:
-                st.radio(
-                    "LLMを選んでください。",
-                    key="model",
-                    options=OPTION_TO_MODEL.keys(),
-                )
+            st.radio(
+                    "埋め込みモデルを選んでください。",
+                    key="embed_model",
+                    index=selected_embed_index,
+                    options=OPTION_TO_EMBED_MODEL.keys(),
+                    )
+        with col3:
+            st.radio(
+                "LLMを選んでください。",
+                key="model",
+                index=selected_index,
+                options=OPTION_TO_MODEL.keys(),
+            )
     if question:
         result_area = st.empty()
         info_area = st.empty()
         
-        if "model" not in st.session_state:
-            st.session_state.model = "GPT-3.5"
-        model = OPTION_TO_MODEL[st.session_state.model]
+        #if "model" not in st.session_state:
+        #    st.session_state.model = "GPT-3.5"
+        if not selected_names:
+            selected_names = "all"
+        
+        model = st.session_state.model
+        embed_model = st.session_state.embed_model
 
-        if KEY_FOR_INDEXES not in st.session_state:
-            selected_indexes_ids = "all"
-        else:
-            selected_indexes_ids = json.loads(st.session_state[KEY_FOR_INDEXES])
+        with st.empty():
+            cookie_manager.set("api_key", api_key, key="api_key")
+            cookie_manager.set("g_api_key", g_api_key, key="g_api_key")
+            cookie_manager.set("llm_model", model, key="llm_model")
+            cookie_manager.set("embed_model", embed_model, key="embed_model_cookie")
+
+        model = OPTION_TO_MODEL[model]
+        embed_model = OPTION_TO_EMBED_MODEL[embed_model]
         
-        
-        cookie_manager.set("api_key", api_key)
-        
+        os.environ["GOOGLE_API_KEY"] = g_api_key
+        os.environ["OPENAI_API_KEY"] = api_key
+
         try:
             if model == "all":
                 results = []
+                futures = []
                 for model_key in OPTION_TO_MODEL:
                     llm_model = OPTION_TO_MODEL[model_key]
                     if llm_model == "all":
                         continue
-                    query_engine, llama_debug = get_query_engines(api_key, g_api_key, llm_model, MULTI_STORAGE_DIR, selected_indexes_ids)
+                    start_t = time.perf_counter()
+                    result = run_query(question, model_key, embed_model, MULTI_STORAGE_DIR, selected_names)
+                    end_t = time.perf_counter()
+                    dur = end_t - start_t
+                    results.append(result + (dur, ))
 
-                    try:
-                        res = query_engine.query(question)
-                        event_pairs = llama_debug.get_llm_inputs_outputs()
-                        llama_debug.flush_event_logs()
-                        prompt =  event_pairs[-1][1].payload["messages"][0]
-                        results.append((model_key, question,prompt,res,llm_model))
-                    except Exception as e:
-                        res = {"response" : e.message}
-                        results.append((model_key, question, None, res, llm_model))
-
-                cols = st.columns(len(OPTION_TO_MODEL) - 1)
+                cols = st.columns(len(results))
                 i = 0
-                for (model_key, question, prompt, res, model) in results:
+                for (model_key, question, prompt, res, model, dur) in results:
                     with cols[i]:
-                        st.subheader(model_key)
-                        st.write(res.response)
+                        st.subheader("%s (%.2fs)" % (model_key, dur))
+#                        st.subheader(model_key)
+#                        st.caption("処理時間: %.2fs" % (dur))
+                        st.write(res.response.replace("\n", "  \n"))
+                        print(" - %s, 処理時間: %.2fs" % (model_key, dur))
+                        print(res.response)
+                        print("--- --- --- --- ---")
 
                     i = i + 1
 
-                for (model_key, question, prompt, res, model) in results:
+                for (model_key, question, prompt, res, model, dur) in results:
                     if prompt:
                         put_result_table(question, prompt, res, model)
             else:
                 base_query_engine, llama_debug = get_query_engines(
-                    api_key, g_api_key, model, MULTI_STORAGE_DIR, selected_indexes_ids
+                    model, embed_model, MULTI_STORAGE_DIR, selected_names
                 )
                 res = base_query_engine.query(question)
                 event_pairs = llama_debug.get_llm_inputs_outputs()

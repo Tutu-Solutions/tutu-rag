@@ -43,10 +43,12 @@ from llama_index.embeddings.langchain import LangchainEmbedding
 
 ## Cached Embedding
 
+
 OPENAI_EMBED_MODEL="text-embedding-3-large"
-GEMINI_EMBED_MODEL="models/embedding-001"
-#LOCAL_EMBED_MODEL="intfloat/multilingual-e5-large"
-LOCAL_EMBED_MODEL="intfloat/multilingual-e5-small"
+#GEMINI_EMBED_MODEL="models/embedding-001"
+GEMINI_EMBED_MODEL="models/textembedding-gecko-multilingual@001"
+LOCAL_EMBED_MODEL="intfloat/multilingual-e5-large"
+#LOCAL_EMBED_MODEL="intfloat/multilingual-e5-small"
 
 class PandasExcelReader(BaseReader):
     r"""Pandas-based CSV parser.
@@ -122,6 +124,7 @@ def gen_embeddings(file_path, use_local_embed, use_gemini_embed):
     from langchain.embeddings import CacheBackedEmbeddings
     from langchain_openai import OpenAIEmbeddings
     from langchain_google_genai import GoogleGenerativeAIEmbeddings
+    from langchain.embeddings import VertexAIEmbeddings
 
     llama_debug = LlamaDebugHandler(print_trace_on_end=True)
     callback_manager = CallbackManager([llama_debug])
@@ -137,6 +140,7 @@ def gen_embeddings(file_path, use_local_embed, use_gemini_embed):
 
         model_name = GEMINI_EMBED_MODEL
         underlying_embed_model = GoogleGenerativeAIEmbeddings(model=model_name)
+        #underlying_embed_model = VertexAIEmbeddings(model=model_name)
     else:
         with open("API_KEY.txt", "r", encoding="UTF-8") as f:
             openai.api_key = f.readline().strip()
@@ -146,7 +150,7 @@ def gen_embeddings(file_path, use_local_embed, use_gemini_embed):
         underlying_embed_model = OpenAIEmbeddings(model=model_name)
 
     cached_embedder = CacheBackedEmbeddings.from_bytes_store(
-                underlying_embed_model, embed_store, namespace=model_name
+                underlying_embed_model, embed_store, namespace=model_name.replace("@","_")
                 )
 
     service_context = ServiceContext.from_defaults(embed_model=LangchainEmbedding(cached_embedder), llm=None, callback_manager=callback_manager)
