@@ -258,47 +258,70 @@ def main_chat():
 
         embed_model_key = st.session_state.embed_model
 
+        from datetime import datetime, timedelta
+
+        expire_time = datetime.now() + timedelta(weeks=4)
+
         with st.container(height=1, border=False):
-            cookie_manager.set("api_key", api_key, key="api_key_cookie")
-            cookie_manager.set("g_api_key", g_api_key, key="g_api_key_cookie")
+            cookie_manager.set(
+                "api_key", api_key, key="api_key_cookie", expires_at=expire_time
+            )
+            cookie_manager.set(
+                "g_api_key", g_api_key, key="g_api_key_cookie", expires_at=expire_time
+            )
             cookie_manager.set(
                 STATE_KEY_FOR_EMBED_MODEL,
                 embed_model_key,
                 key=COOKIE_KEY_FOR_EMBED_MODEL,
+                expires_at=expire_time,
             )
             cookie_manager.set(
-                "selected_llms", selected_llms, key="selected_llms_cookie"
+                "selected_llms",
+                selected_llms,
+                key="selected_llms_cookie",
+                expires_at=expire_time,
             )
             cookie_manager.set(
-                STATE_KEY_FOR_IBM_KEY, i_api_key, key=COOKIE_KEY_FOR_IBM_KEY
+                STATE_KEY_FOR_IBM_KEY,
+                i_api_key,
+                key=COOKIE_KEY_FOR_IBM_KEY,
+                expires_at=expire_time,
             )
             cookie_manager.set(
                 STATE_KEY_FOR_IBM_PROJECT_ID,
                 i_project_id,
                 key=COOKIE_KEY_FOR_IBM_PROJECT_ID,
+                expires_at=expire_time,
             )
             cookie_manager.set(
                 STATE_KEY_FOR_IBM_AUTH_ENDPOINT,
                 i_auth_endpoint,
                 key=COOKIE_KEY_FOR_IBM_AUTH_ENDPOINT,
+                expires_at=expire_time,
             )
             cookie_manager.set(
                 STATE_KEY_FOR_ANTHROPIC_KEY,
                 anthropic_key,
                 key=COOKIE_KEY_FOR_ANTHROPIC_KEY,
+                expires_at=expire_time,
             )
             cookie_manager.set(
                 STATE_KEY_FOR_AWS_ACCESS_KEY,
                 aws_access_key_id,
                 key=COOKIE_KEY_FOR_AWS_ACCESS_KEY,
+                expires_at=expire_time,
             )
             cookie_manager.set(
                 STATE_KEY_FOR_AWS_SECRET_KEY,
                 aws_secret_access_key,
                 key=COOKIE_KEY_FOR_AWS_SECRET_KEY,
+                expires_at=expire_time,
             )
             cookie_manager.set(
-                STATE_KEY_FOR_AWS_REGION, aws_region_name, key=COOKIE_KEY_FOR_AWS_REGION
+                STATE_KEY_FOR_AWS_REGION,
+                aws_region_name,
+                key=COOKIE_KEY_FOR_AWS_REGION,
+                expires_at=expire_time,
             )
 
         auth_obj = AuthRecord(

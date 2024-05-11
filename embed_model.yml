@@ -1,0 +1,21 @@
+OpenAIのAPI:
+  service: openai
+  model: text-embedding-ada-002
+  display: OpenAIのAPI
+
+オンプレ:
+  service: local
+  model: intfloat/multilingual-e5-small
+  display: オンプレ
+
+Google Gemini API:
+  service: google
+  model: models/embedding-001
+  display: Google Gemini API
+  hidden: True
+
+Cohere API:
+  service: Cohere
+  model: embed-multilingual-v3.0
+  display: Cohere API
+  hidden: True

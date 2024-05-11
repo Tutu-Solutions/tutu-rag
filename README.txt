@@ -2,4 +2,4 @@
 2. Windowsのコマンドプロンプトを起動します。
 3. 起動後、下記のコマンドを入力し、Enterキーを押します。
    pip install -U -r requirements.txt
-4. streamlit run AACGPB.py --server.port 8080
+4. streamlit run web_app.py --server.port 8080

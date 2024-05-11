@@ -5,5 +5,6 @@ NUM_OF_COL_FOR_LLM = 3
 PROMPT_ID = "QA_PROMPT"
 REFINE_PROMPT_ID = "REFINE_PROMPT"
 LLM_CONFIG_FILE = "llm_model.yml"
+EMBED_CONFIG_FILE = "embed_model.yml"
 LANGCHAIN_LLM_CACHE_DB = ".langchain.db"
 STORAGE_CONFIG_FILE = "config.yml"

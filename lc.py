@@ -4,7 +4,7 @@ from keys import *
 from index_module import MULTI_STORAGE_DIR
 from engine import get_index
 from engine import get_embed_model
-from engine import OPTION_TO_EMBED_MODEL
+from engine import get_embed_model_by_key
 
 ## LlamaIndex Import
 from llama_index import ServiceContext, StorageContext
@@ -14,9 +14,10 @@ from llama_index import SimpleDirectoryReader
 from langchain_community.retrievers.llama_index import LlamaIndexRetriever
 
 import argparse
+
 parser = argparse.ArgumentParser()
 parser.add_argument("-d", "--debug", action="store_true")
-parser.add_argument("-k", "--top_k",  type=int, default=settings.TOP_SIMIRALITY_K)
+parser.add_argument("-k", "--top_k", type=int, default=settings.TOP_SIMIRALITY_K)
 parser.add_argument("-p", "--prompt", default=settings.PROMPT_ID)
 
 args = parser.parse_args()
@@ -26,19 +27,17 @@ settings.TOP_SIMIRALITY_K = args.top_k
 settings.PROMPT_ID = args.prompt
 
 import os
-os.environ["OPENAI_API_KEY"] = ""
-os.environ["TAVILY_API_KEY"] = ""
-os.environ["GOOGLE_API_KEY"] = ""
 
 import langchain
 from langchain.cache import SQLiteCache
+
 langchain.llm_cache = SQLiteCache(database_path=".lc.db")
 
 embed_model_key = EMBED_KEY_ONPREMISE
 
 index, _, _ = get_index(embed_model_key, MULTI_STORAGE_DIR, "all", True)
 
-embed_model = OPTION_TO_EMBED_MODEL[embed_model_key]
+embed_model = get_embed_model_by_key(embed_model_key)
 (embed_model, embed_model_name) = get_embed_model(embed_model)
 service_context = ServiceContext.from_defaults(embed_model=embed_model, llm=None)
 retriever = LlamaIndexRetriever(
@@ -60,6 +59,7 @@ class GraphState(TypedDict):
     """
 
     keys: Dict[str, any]
+
 
 import json
 import operator
@@ -119,7 +119,7 @@ def generate(state):
     documents = state_dict["documents"]
 
     # Prompt
-    #prompt = hub.pull("rlm/rag-prompt")
+    # prompt = hub.pull("rlm/rag-prompt")
 
     prompt = PromptTemplate(
         template="""以下の情報を参照してください。\n
@@ -132,7 +132,7 @@ def generate(state):
 
     # LLM
     llm = ChatGoogleGenerativeAI(model="gemini-pro", streaming=True, temperature=0)
-    #llm = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0, streaming=True)
+    # llm = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0, streaming=True)
 
     # Post-processing
     def format_docs(docs):
@@ -186,19 +186,19 @@ def grade_documents(state):
     parser_tool = PydanticToolsParser(tools=[grade])
 
     # LLM
-    #modelg = ChatGoogleGenerativeAI(model="gemini-pro", streaming=True, tools=[grade], temperature=0)
-    modelg = ChatGoogleGenerativeAI(model="gemini-pro", streaming=True,  temperature=0)
+    # modelg = ChatGoogleGenerativeAI(model="gemini-pro", streaming=True, tools=[grade], temperature=0)
+    modelg = ChatGoogleGenerativeAI(model="gemini-pro", streaming=True, temperature=0)
 
     # Tool
     grade_tool_oaig = convert_to_openai_tool(grade)
 
     # LLM with tool and enforce invocation
-    #llm_with_tool = model.bind_tools([grade])
+    # llm_with_tool = model.bind_tools([grade])
     llm_with_toolg = modelg.bind(tools=[grade])
-    #llm_with_toolg = modelg.bind(tools=[grade_tool_oaig])
+    # llm_with_toolg = modelg.bind(tools=[grade_tool_oaig])
 
     # Parser
-    parser_toolg = PydanticFunctionsOutputParser(pydantic_schema={"grade" : grade})
+    parser_toolg = PydanticFunctionsOutputParser(pydantic_schema={"grade": grade})
 
     # Prompt
     prompt = PromptTemplate(
@@ -211,23 +211,23 @@ def grade_documents(state):
     )
 
     # Chain
-    #chain = prompt | llm_with_tool | parser_tool
-    #chain = prompt | llm_with_tool | StrOutputParser()
+    # chain = prompt | llm_with_tool | parser_tool
+    # chain = prompt | llm_with_tool | StrOutputParser()
 
     chaing = prompt | model | StrOutputParser()
-    #chain2 = prompt | llm_with_tool
+    # chain2 = prompt | llm_with_tool
 
     # Score
     filtered_docs = []
     search = "No"  # Default do not opt for web search to supplement retrieval
     for d in documents:
-        #scoreg = chaing.invoke({"question": question, "context": d.page_content})
+        # scoreg = chaing.invoke({"question": question, "context": d.page_content})
         grade = chaing.invoke({"question": question, "context": d.page_content})
         print(grade)
-        #grade = scoreg.binary_score
-        #score = chain.invoke({"question": question, "context": d.page_content})
-        #print(score)
-        #grade = score[0].binary_score
+        # grade = scoreg.binary_score
+        # score = chain.invoke({"question": question, "context": d.page_content})
+        # print(score)
+        # grade = score[0].binary_score
         if grade.lower() == "yes":
             print("---GRADE: DOCUMENT RELEVANT---")
             filtered_docs.append(d)
@@ -277,15 +277,23 @@ def transform_query(state):
     )
 
     # Grader
-    model = ChatGoogleGenerativeAI(model="models/gemini-pro", streaming=True, temperature=0)
-    #model = ChatOpenAI(temperature=0, model="gpt-4-0125-preview", streaming=True)
+    model = ChatGoogleGenerativeAI(
+        model="models/gemini-pro", streaming=True, temperature=0
+    )
+    # model = ChatOpenAI(temperature=0, model="gpt-4-0125-preview", streaming=True)
 
     # Prompt
     chain = prompt | model | StrOutputParser()
     better_question = chain.invoke({"question": question})
     print(better_question)
 
-    return {"keys": {"documents": documents, "question": better_question, "ori_question" : question}}
+    return {
+        "keys": {
+            "documents": documents,
+            "question": better_question,
+            "ori_question": question,
+        }
+    }
 
 
 def web_search(state):
@@ -343,6 +351,7 @@ def decide_to_generate(state):
         # We have relevant documents, so generate answer
         print("---DECISION: GENERATE---")
         return "generate"
+
 
 import pprint
 

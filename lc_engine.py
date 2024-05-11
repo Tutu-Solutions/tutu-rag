@@ -9,20 +9,24 @@ from llama_index import ServiceContext
 ## Langchain Import
 from langchain_community.retrievers.llama_index import LlamaIndexRetriever
 
-os.environ["GOOGLE_API_KEY"] = ""
 os.environ["TAVILY_API_KEY"] = ""
 
 class LCBridge:
     app = None
     cache = None
-    def __init__(self, index, embed_model):
+
+    def __init__(self, index, embed_model, llm_model, auth_obj):
         from langchain.cache import SQLiteCache
+
         self.cache = SQLiteCache(database_path=".lc.db")
 
-        service_context = ServiceContext.from_defaults(embed_model=embed_model, llm=None)
+        service_context = ServiceContext.from_defaults(
+            embed_model=embed_model, llm=None
+        )
         retriever = LlamaIndexRetriever(
             index=index.as_query_engine(
-                service_context=service_context, similarity_top_k=settings.TOP_SIMIRALITY_K + 2
+                service_context=service_context,
+                similarity_top_k=settings.TOP_SIMIRALITY_K + 2,
             )
         )
         from typing import Dict, TypedDict
@@ -62,7 +66,6 @@ class LCBridge:
 
         ### Nodes ###
 
-
         def retrieve(state):
             """
             Retrieve documents
@@ -78,7 +81,6 @@ class LCBridge:
             question = state_dict["question"]
             documents = retriever.get_relevant_documents(question)
             return {"keys": {"documents": documents, "question": question}}
-
 
         def generate(state):
             """
@@ -96,7 +98,7 @@ class LCBridge:
             documents = state_dict["documents"]
 
             # Prompt
-            #prompt = hub.pull("rlm/rag-prompt")
+            # prompt = hub.pull("rlm/rag-prompt")
 
             prompt = PromptTemplate(
                 template="""以下の情報を参照してください。\n
@@ -108,8 +110,13 @@ class LCBridge:
             )
 
             # LLM
-            llm = ChatGoogleGenerativeAI(model="gemini-pro",  temperature=0)
-            #llm = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0, streaming=True)
+            # from langchain_google_vertexai import ChatVertexAI
+            # llm = ChatVertexAI(model_name="gemini-1.5-pro-preview-0409")
+            # llm = ChatGoogleGenerativeAI(model="gemini-1.0-pro-latest", temperature=0)
+            # llm = ChatGoogleGenerativeAI(model="gemini-1.5-pro-latest", temperature=0, google_api_key=auth_obj.g_api_key)
+            # llm = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0, streaming=True)
+
+            llm = llm_model
 
             # Post-processing
             def format_docs(docs):
@@ -121,9 +128,12 @@ class LCBridge:
             # Run
             generation = rag_chain.invoke({"context": documents, "question": question})
             return {
-                "keys": {"documents": documents, "question": question, "generation": generation}
+                "keys": {
+                    "documents": documents,
+                    "question": question,
+                    "generation": generation,
+                }
             }
-
 
         def grade_documents(state):
             """
@@ -151,19 +161,27 @@ class LCBridge:
             parser_tool = PydanticToolsParser(tools=[grade])
 
             # LLM
-            #modelg = ChatGoogleGenerativeAI(model="gemini-pro", streaming=True, tools=[grade], temperature=0)
-            modelg = ChatGoogleGenerativeAI(model="gemini-pro", temperature=0, cache=self.cache)
+            # modelg = ChatGoogleGenerativeAI(model="gemini-1.0-pro-latest", streaming=True, tools=[grade], temperature=0)
+            print(self.cache)
+            modelg = ChatGoogleGenerativeAI(
+                model="gemini-1.0-pro-latest",
+                temperature=0,
+                cache=self.cache,
+                google_api_key=auth_obj.g_api_key,
+            )
 
             # Tool
             grade_tool_oaig = convert_to_openai_tool(grade)
 
             # LLM with tool and enforce invocation
-            #llm_with_tool = model.bind_tools([grade])
+            # llm_with_tool = model.bind_tools([grade])
             llm_with_toolg = modelg.bind(tools=[grade])
-            #llm_with_toolg = modelg.bind(tools=[grade_tool_oaig])
+            # llm_with_toolg = modelg.bind(tools=[grade_tool_oaig])
 
             # Parser
-            parser_toolg = PydanticFunctionsOutputParser(pydantic_schema={"grade" : grade})
+            parser_toolg = PydanticFunctionsOutputParser(
+                pydantic_schema={"grade": grade}
+            )
 
             # Prompt
             prompt = PromptTemplate(
@@ -177,23 +195,23 @@ class LCBridge:
             )
 
             # Chain
-            #chain = prompt | llm_with_tool | parser_tool
-            #chain = prompt | llm_with_tool | StrOutputParser()
+            # chain = prompt | llm_with_tool | parser_tool
+            # chain = prompt | llm_with_tool | StrOutputParser()
 
             chaing = prompt | modelg | StrOutputParser()
-            #chain2 = prompt | llm_with_tool
+            # chain2 = prompt | llm_with_tool
 
             # Score
             filtered_docs = []
             search = "No"  # Default do not opt for web search to supplement retrieval
             for d in documents:
-                #scoreg = chaing.invoke({"question": question, "context": d.page_content})
+                # scoreg = chaing.invoke({"question": question, "context": d.page_content})
                 grade = chaing.invoke({"question": question, "context": d.page_content})
                 print(grade)
-                #grade = scoreg.binary_score
-                #score = chain.invoke({"question": question, "context": d.page_content})
-                #print(score)
-                #grade = score[0].binary_score
+                # grade = scoreg.binary_score
+                # score = chain.invoke({"question": question, "context": d.page_content})
+                # print(score)
+                # grade = score[0].binary_score
                 if grade.lower() == "yes":
                     print("---GRADE: DOCUMENT RELEVANT---")
                     filtered_docs.append(d)
@@ -212,7 +230,6 @@ class LCBridge:
                     "run_web_search": search,
                 }
             }
-
 
         def transform_query(state):
             """
@@ -243,16 +260,26 @@ class LCBridge:
             )
 
             # Grader
-            model = ChatGoogleGenerativeAI(model="models/gemini-pro", temperature=0, cache=self.cache)
-            #model = ChatOpenAI(temperature=0, model="gpt-4-0125-preview", streaming=True)
+            model = ChatGoogleGenerativeAI(
+                model="models/gemini-1.0-pro-latest",
+                temperature=0,
+                cache=self.cache,
+                google_api_key=auth_obj.g_api_key,
+            )
+            # model = ChatOpenAI(temperature=0, model="gpt-4-0125-preview", streaming=True)
 
             # Prompt
             chain = prompt | model | StrOutputParser()
             better_question = chain.invoke({"question": question})
             print(better_question)
 
-            return {"keys": {"documents": documents, "question": better_question, "ori_question" : question}}
-
+            return {
+                "keys": {
+                    "documents": documents,
+                    "question": better_question,
+                    "ori_question": question,
+                }
+            }
 
         def web_search(state):
             """
@@ -279,9 +306,7 @@ class LCBridge:
 
             return {"keys": {"documents": documents, "question": ori_question}}
 
-
         ### Edges
-
 
         def decide_to_generate(state):
             """
@@ -340,9 +365,10 @@ class LCBridge:
 
         # Compile
         self.app = workflow.compile()
-        
-    def query(self, question : str):
+
+    def query(self, question: str):
         import pprint
+
         # Run
         inputs = {"keys": {"question": question}}
         for output in self.app.stream(inputs):
@@ -362,4 +388,3 @@ class LCBridge:
         res = FakeRes()
         res.response = str(value["keys"]["generation"])
         return res
-  

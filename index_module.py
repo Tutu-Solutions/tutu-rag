@@ -126,8 +126,6 @@ def load_index(persist_path, service_context):
     return load_index_from_storage(storage_context, service_context=service_context)
 
 
-@st.cache_resource
-## ServiceContext is unhashable
 def get_multi_vector_index(
     selected_names, storage_dir, _service_context, embed_model, names_tagged=False
 ):

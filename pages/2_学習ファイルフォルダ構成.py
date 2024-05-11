@@ -22,6 +22,10 @@ st.title("学習ファイルフォルダ構成")
 ## Index Selection
 cookie_manager = stx.CookieManager()
 
+from datetime import datetime, timedelta
+
+expire_time = datetime.now() + timedelta(weeks=4)
+
 selected_names_cookie = cookie_manager.get(cookie="selected_names")
 expanded_node_cookie = cookie_manager.get(cookie=STATE_KEY_FOR_EXPANDED_NODES)
 checked_node_cookie = cookie_manager.get(cookie=STATE_KEY_FOR_CHECKED_NODES)
@@ -62,10 +66,14 @@ with st.container(border=True):
                     STATE_KEY_FOR_EXPANDED_NODES,
                     "all",
                     key=COOKIE_KEY_FOR_EXPANDED_NODES,
+                    expires_at=expire_time,
                 )
             if checked_node_cookie:
                 cookie_manager.set(
-                    STATE_KEY_FOR_CHECKED_NODES, "all", key=COOKIE_KEY_FOR_CHECKED_NODES
+                    STATE_KEY_FOR_CHECKED_NODES,
+                    "all",
+                    key=COOKIE_KEY_FOR_CHECKED_NODES,
+                    expires_at=expire_time,
                 )
 
     if submitted:
@@ -76,10 +84,12 @@ with st.container(border=True):
                 STATE_KEY_FOR_EXPANDED_NODES,
                 json.dumps(ret_select["expanded"]),
                 key=COOKIE_KEY_FOR_EXPANDED_NODES,
+                expires_at=expire_time,
             )
             cookie_manager.set(
                 STATE_KEY_FOR_CHECKED_NODES,
                 json.dumps(ret_select["checked"]),
                 key=COOKIE_KEY_FOR_CHECKED_NODES,
+                expires_at=expire_time,
             )
         st.success("処理完了")

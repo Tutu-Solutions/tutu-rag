@@ -8,14 +8,23 @@ GPT-4:
   service: OpenAI
 Gemini Pro:
   category: Google
-  model: models/gemini-pro
+  model: models/gemini-1.0-pro-latest
+  service: Google
+Gemini 1.5 Pro (Vertex AI):
+  category: Google
+  model: models/gemini-1.5-pro-preview-0409
+  service: Vertex
+  hidden: True
+Gemini 1.5 Pro:
+  category: Google
+  model: models/gemini-1.5-pro-latest
   service: Google
 Gemini Ultra (β版):
   category: Google
   model: models/gemini-ultra
   service: Google
   ## Unavailable
-  hidden: "True"
+  #hidden: True
 Claude 3 Opus:
   category: Anthropic
   model: claude-3-opus-20240229
@@ -45,7 +54,7 @@ Claude 2.1 (Amazon Bedrock):
   model: anthropic.claude-v2:1
   service: Amazon
   ## Use Claude 3 instead
-  hidden: "True"
+  hidden: True
 Granite-8b-japanese:
   category: IBM
   model: ibm/granite-8b-japanese
@@ -61,19 +70,19 @@ Flan T5 XL (IBM Watsonx):
   model: google/flan-t5-xl
   service: IBM
   ## TODO: Find a workable prompt
-  hidden: "True"
+  #hidden: True
 Flan T5 XXL (IBM Watsonx):
   category: Google
   model: google/flan-t5-xxl
   service: IBM
   ## TODO: Find a workable prompt
-  hidden: "True"
+  #hidden: True
 Flan UL2 (IBM Watsonx):
   category: Google
   model: google/flan-ul2
   service: IBM
   ## TODO: Find a workable prompt
-  hidden: "True"
+  #hidden: True
 Mistral 8x7b instruct v01 (IBM Watsonx):
   category: Mistral
   model: ibm-mistralai/mixtral-8x7b-instruct-v01-q
@@ -109,7 +118,22 @@ Granite-20b-multilingual (β版):
   model: ibm/granite-20b-multilingual
   service: IBM
   prompt: QA_PROMPT_IBM_GRANITE_8B_JAPANESE_QA
-Gemini Pro (CRAG):
+Gemini 1.5 Pro (CRAG):
   category: Google
-  model: gemini-1.0-pro
-  service: langgraph
+  model: gemini-1.5-pro-latest
+  service: Google
+  option: CRAG
+GPT-3.5 (CRAG):
+  category: OpenAI
+  model: gpt-3.5-turbo
+  service: OpenAI
+  option: CRAG
+Command R+:
+  category: Cohere
+  model: command-r-plus
+  service: Cohere
+Command R+ (+Rerank):
+  category: Cohere
+  model: command-r-plus
+  service: Cohere
+  rerank: rerank-multilingual-v3.0
