@@ -4,7 +4,7 @@ import os
 import json
 
 ## LlamaIndex Import
-from llama_index import StorageContext, load_index_from_storage
+from llama_index.legacy import StorageContext, load_index_from_storage
 
 ## Local Import
 import settings

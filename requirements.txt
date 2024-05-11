@@ -1,4 +1,4 @@
-llama-index==0.9.48
+llama-index==0.10.35
 openai==1.16.2
 streamlit==1.33.0
 streamlit-tree-select==0.0.5

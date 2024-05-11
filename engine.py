@@ -8,16 +8,16 @@ import yaml
 from pathlib import Path
 
 ## LlamaIndex Import
-from llama_index import ServiceContext, StorageContext
-from llama_index import SimpleDirectoryReader
-from llama_index.indices.vector_store import VectorStoreIndex
+from llama_index.legacy import ServiceContext, StorageContext
+from llama_index.legacy import SimpleDirectoryReader
+from llama_index.legacy.indices.vector_store import VectorStoreIndex
 
 ## LlamaIndex Debug
-from llama_index.callbacks import CallbackManager, LlamaDebugHandler, CBEventType
+from llama_index.legacy.callbacks import CallbackManager, LlamaDebugHandler, CBEventType
 
 ## Prompts Import
-from llama_index.prompts.prompts import QuestionAnswerPrompt
-from llama_index.prompts.prompts import RefinePrompt
+from llama_index.legacy.prompts.prompts import QuestionAnswerPrompt
+from llama_index.legacy.prompts.prompts import RefinePrompt
 
 ## Local Import
 from index_module import get_multi_vector_index
@@ -33,6 +33,7 @@ from langchain_community.chat_models import ChatOpenAI
 from langchain_community.chat_models import BedrockChat
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_google_genai import GoogleGenerativeAI
+import bigframes.dataframe
 from langchain_google_vertexai import ChatVertexAI
 
 ## AWS Bedrock Import
@@ -185,7 +186,7 @@ def get_api_embed_model(service, model_name, auth_obj, retrieval):
 def get_embed_model(embed_model, auth_obj: AuthRecord, retrieval: bool = False):
     from langchain.storage import LocalFileStore
     from langchain.embeddings import CacheBackedEmbeddings
-    from llama_index.embeddings.langchain import LangchainEmbedding
+    from llama_index.legacy.embeddings.langchain import LangchainEmbedding
 
     embed_store = LocalFileStore("./embed_cache/")
 
@@ -342,7 +343,7 @@ def get_query_engine(
     node_postprocessors = None
     similarity_top_k = settings.TOP_SIMIRALITY_K
     if "rerank" in llm_model_entry:
-        from llama_index.postprocessor.cohere_rerank import CohereRerank
+        from llama_index.legacy.postprocessor.cohere_rerank import CohereRerank
 
         cohere_rerank = CohereRerank(
             model=llm_model_entry["rerank"], top_n=settings.TOP_SIMIRALITY_K
@@ -351,8 +352,8 @@ def get_query_engine(
         similarity_top_k = similarity_top_k + 2
 
     if "citation" in llm_model_entry:
-        from llama_index.query_engine import CitationQueryEngine
-        from llama_index.prompts import PromptTemplate
+        from llama_index.legacy.query_engine import CitationQueryEngine
+        from llama_index.legacy.prompts import PromptTemplate
 
         index, callback_manager, llama_debug = get_index_with_llm(
             auth_obj, embed_model_entry, storage_dir, selected_names, names_tagged, llm

@@ -1,15 +1,15 @@
 from typing import Any, Dict, List, Optional, Sequence
 
-from llama_index import StorageContext, ServiceContext
-from llama_index.constants import DEFAULT_SIMILARITY_TOP_K
-from llama_index.data_structs.data_structs import IndexDict
-from llama_index.indices.base import BaseIndex
-from llama_index.indices.base_retriever import BaseRetriever
-from llama_index.indices.query.schema import QueryBundle
-from llama_index.indices.vector_store import VectorStoreIndex
-from llama_index.indices.vector_store.retrievers import VectorIndexRetriever
-from llama_index.schema import BaseNode, NodeWithScore
-from llama_index.storage.docstore.types import RefDocInfo
+from llama_index.legacy import StorageContext, ServiceContext
+from llama_index.legacy.constants import DEFAULT_SIMILARITY_TOP_K
+from llama_index.legacy.data_structs.data_structs import IndexDict
+from llama_index.legacy.indices.base import BaseIndex
+from llama_index.legacy.indices.base_retriever import BaseRetriever
+from llama_index.legacy.indices.query.schema import QueryBundle
+from llama_index.legacy.indices.vector_store import VectorStoreIndex
+from llama_index.legacy.indices.vector_store.retrievers import VectorIndexRetriever
+from llama_index.legacy.schema import BaseNode, NodeWithScore
+from llama_index.legacy.storage.docstore.types import RefDocInfo
 
 from threading import Lock
 

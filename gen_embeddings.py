@@ -5,14 +5,14 @@
 #
 
 from pathlib import Path
-from llama_index.constants import DEFAULT_CHUNK_SIZE
-from llama_index.indices.vector_store import GPTVectorStoreIndex
-from llama_index import download_loader, LLMPredictor, ServiceContext
-from llama_index import StorageContext, load_index_from_storage
-from llama_index import SimpleDirectoryReader
-from llama_index.embeddings.openai import OpenAIEmbedding
+from llama_index.legacy.constants import DEFAULT_CHUNK_SIZE
+from llama_index.legacy.indices.vector_store import GPTVectorStoreIndex
+from llama_index.legacy import download_loader, LLMPredictor, ServiceContext
+from llama_index.legacy import StorageContext, load_index_from_storage
+from llama_index.legacy import SimpleDirectoryReader
+from llama_index.legacy.embeddings.openai import OpenAIEmbedding
 
-from llama_index.callbacks import (
+from llama_index.legacy.callbacks import (
     CallbackManager,
     LlamaDebugHandler,
     CBEventType,
@@ -28,17 +28,17 @@ import mimetypes
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
-from llama_index.readers.base import BaseReader
-from llama_index.readers.schema.base import Document
+from llama_index.legacy.readers.base import BaseReader
+from llama_index.legacy.readers.schema.base import Document
 
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from llama_index.readers.base import BaseReader
-from llama_index.readers.schema.base import Document
+from llama_index.legacy.readers.base import BaseReader
+from llama_index.legacy.readers.schema.base import Document
 
 from langchain_community.embeddings import HuggingFaceEmbeddings
-from llama_index.embeddings.langchain import LangchainEmbedding
+from llama_index.legacy.embeddings.langchain import LangchainEmbedding
 
 ## Cached Embedding
 
@@ -97,9 +97,9 @@ class PandasExcelReader(BaseReader):
 
         import pandas as pd
 
-        import llama_index
+        from llama_index.legacy.utils import get_tokenizer
 
-        tokenizer = llama_index.get_tokenizer()
+        tokenizer = get_tokenizer()
 
         df = pd.read_excel(file, sheet_name=sheet_name, **self._pandas_config)
 
@@ -267,7 +267,9 @@ class SimpleCSVReader(BaseReader):
 
         import llama_index
 
-        tokenizer = llama_index.get_tokenizer()
+        from llama_index.legacy.utils import get_tokenizer
+
+        tokenizer = get_tokenizer()
 
         document_list = []
         with open(file, "r", encoding=self._encoding) as fp:

@@ -4,7 +4,7 @@ import os
 import settings
 
 ## LlamaIndex Import
-from llama_index import ServiceContext
+from llama_index.legacy import ServiceContext
 
 ## Langchain Import
 from langchain_community.retrievers.llama_index import LlamaIndexRetriever

@@ -7,8 +7,8 @@ from engine import get_embed_model
 from engine import get_embed_model_by_key
 
 ## LlamaIndex Import
-from llama_index import ServiceContext, StorageContext
-from llama_index import SimpleDirectoryReader
+from llama_index.legacy import ServiceContext, StorageContext
+from llama_index.legacy import SimpleDirectoryReader
 
 ## Langchain Import
 from langchain_community.retrievers.llama_index import LlamaIndexRetriever
