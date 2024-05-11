@@ -6,8 +6,8 @@ watchdog==4.0.0
 extra-streamlit-components==0.1.70
 langchain==0.1.13
 langchain-openai==0.1.1
-./langchain_anthropic-0.1.4-py3-none-any.whl
-./langchain_community-0.0.29-py3-none-any.whl
+langchain-community==0.0.38
+langchain-anthropic==0.1.11
 requests==2.31.0
 google-generativeai==0.4.1
 langchain-google-genai==1.0.1
